@@ -79,45 +79,4 @@ def fetch_news_sentiment():
                         title_lower = title.lower()
                         if any(k in title_lower for k in POSITIVE_KEYWORDS):
                             pos_hits += 1
-                        if any(k in title_lower for k in NEGATIVE_KEYWORDS):
-                            neg_hits += 1
-        except Exception:
-            continue
-
-    return headlines[:10], pos_hits, neg_hits
-
-# 4. Technische, MACD & Uitputtingsanalyse per Aandeel
-@st.cache_data(ttl=900)
-def analyze_stock(ticker, dev_risk, mkt_ret):
-    try:
-        stock = yf.Ticker(ticker)
-        hist = stock.history(period="3mo")
-        if hist is None or hist.empty or len(hist) < 30:
-            return None
-
-        info = stock.info or {}
-        name = str(info.get('longName') or ticker.replace('.IS', ''))
-        price = float(hist['Close'].iloc[-1])
-
-        # Daytrading Pivot Points
-        h = float(hist['High'].iloc[-2])
-        l = float(hist['Low'].iloc[-2])
-        c = float(hist['Close'].iloc[-2])
-        pivot = (h + l + c) / 3
-        r1 = round((2 * pivot) - l, 2)
-        s1 = round((2 * pivot) - h, 2)
-
-        # Bereken hoeveel % het aandeel nog moet stijgen tot weerstand R1
-        upside_to_r1 = round(((r1 - price) / price) * 100, 2)
-
-        # Voortschrijdende gemiddelden (SMA 10 & SMA 50)
-        sma10 = float(hist['Close'].rolling(10).mean().iloc[-1])
-        sma50 = float(hist['Close'].rolling(min(50, len(hist))).mean().iloc[-1])
-        
-        # RSI (14 dagen)
-        delta = hist['Close'].diff()
-        gain = delta.clip(lower=0).rolling(14).mean()
-        loss = (-delta.clip(upper=0)).rolling(14).mean()
-        rs = gain / loss
-        rsi_series = 100 - (100 / (1 + rs))
-        rsi = float(rsi_series.iloc[-1]) if
+                        if any(k in title_lower for k in NEGATIVE_KEYWORDS
