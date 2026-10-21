@@ -3,7 +3,7 @@ import yfinance as yf
 import pandas as pd
 import numpy as np
 
-st.set_page_config(page_title="BIST Quant Scanner Beast Pro Plus", page_icon="🏆", layout="centered")
+st.set_page_config(page_title="BIST Quant Scanner Beast Pro", page_icon="🏆", layout="centered")
 
 SECTORS = {
     "Alle Aandelen": ['GARAN.IS', 'YKBNK.IS', 'AKBNK.IS', 'ISCTR.IS', 'EREGL.IS', 'THYAO.IS', 'TUPRS.IS', 'SAHOL.IS', 'KCHOL.IS', 'BIMAS.IS', 'ASELS.IS', 'SISE.IS', 'MGROS.IS'],
@@ -50,172 +50,21 @@ def get_macro():
     return {
         "usd": usd_try, "xu100": xu100_p, "xu100_r3m": xu100_r3m, "xu100_r1d": xu100_r1d,
         "brent": brent_p, "brent_chg": brent_chg, "s1": s1, "s2": s2, "r1": r1, "r2": r2, 
-        "dev": usd_try > 48.0, "oil_shock": brent_chg > 4.0
+        "dev": usd_try > 48.0
     }
 
+# --- UITGEBREIDE WEKELIJKS INZICHT & PROGNOSES ---
 @st.cache_data(ttl=900)
-def get_market_intelligence(macro):
-    intel = [
-        "📈 **BIST 100 Analistenconsensus:** Grote investeringsbanken (zoals Goldman Sachs, Morgan Stanley en lokale Turkse huizen) benadrukken dat de BIST 100 sterk ondergewaardeerd is op koers-winstbasis, maar dat buitenlandse instroom afhangt van de voortgang van het monetaire stabilisatiebeleid.",
-        "📊 **Kwartaalcijfers & Winstverwachtingen:** Analisten verwachten dat met name exportgerichte bedrijven en grootbanken robuuste operationele marges rapporteren in het komende kwartaal ondanks de inflatiedruk."
-    ]
-    if macro['oil_shock']:
-        intel.append("🚨 **Brandstof- & Olieprijsschok:** Stijgende olieprijzen verhogen de inflatiedruk en drukken op de winstmarges van transport en industrie.")
-    else:
-        intel.append(f"🛢️ **Energie-markt (Brent ${macro['brent']:.2f}):** Olieprijzen stabiel; gunstig voor de verwachte kwartaalresultaten van energie-intensieve sectoren.")
-    return intel
-
-@st.cache_data(ttl=900)
-def analyze(ticker, macro):
-    try:
-        stock = yf.Ticker(ticker)
-        hist = stock.history(period="3mo")
-        if hist.empty or len(hist) < 15:
-            return None
-        
-        info = stock.info or {}
-        name = str(info.get('longName') or ticker)
-        price = float(hist['Close'].iloc[-1])
-        
-        sma10 = float(hist['Close'].rolling(10).mean().iloc[-1])
-        sma50 = float(hist['Close'].rolling(min(50, len(hist))).mean().iloc[-1])
-        
-        rsi = 50.0
-        delta = hist['Close'].diff()
-        gain = delta.clip(lower=0).rolling(14).mean()
-        loss = (-delta.clip(upper=0)).rolling(14).mean()
-        rsi_val = (100 - (100 / (1 + (gain / loss)))).iloc[-1]
-        if not pd.isna(rsi_val):
-            rsi = float(rsi_val)
-
-        stock_ret_3m = ((price - float(hist['Close'].iloc[0])) / float(hist['Close'].iloc[0])) * 100
-        alpha = round(stock_ret_3m - macro['xu100_r3m'], 2)
-
-        recent_low = float(hist['Low'].tail(10).min())
-        recovery_dip = round(((price - recent_low) / recent_low) * 100, 2)
-
-        h, l, c = float(hist['High'].iloc[-2]), float(hist['Low'].iloc[-2]), float(hist['Close'].iloc[-2])
-        p = (h + l + c) / 3
-        s1 = round((2 * p) - l, 2)
-        s2 = round(p - (h - l), 2)
-        r1 = round((2 * p) - h, 2)
-        r2 = round(p + (h - l), 2)
-
-        if price <= s1 * 1.02 or (price > sma10 and rsi < 70):
-            daytrade_kans = f"🟢 BUY SETUP (Steun S1: ₺{s1})"
-        elif price >= r1 * 0.99 or rsi > 75:
-            daytrade_kans = f"🟠 TAKE PROFIT / WEERSTAND (R1: ₺{r1})"
-        else:
-            daytrade_kans = f"🔵 NEUTRAAL (Steun: ₺{s1} | Weerstand: ₺{r1})"
-
-        bb_std = float(hist['Close'].rolling(20).std().iloc[-1])
-        bb_width = (4 * bb_std) / sma10
-        if bb_width < 0.12:
-            patroon = "🔮 Bollinger Squeeze (Winkans: 78%)"
-        elif price > sma10 and price > sma50 and rsi > 55:
-            patroon = "🚀 Bullish Trend Vervolg (Winkans: 74%)"
-        elif rsi < 38:
-            patroon = "🔄 Oversold Rebound (Winkans: 71%)"
-        else:
-            patroon = "📊 Range Consolidatie (Winkans: 65%)"
-
-        # Analisten meningen & Kwartaalcijfers projecties ophalen
-        analyst_opinion = "Investeringsmaatschappijen handhaven een overwegend positief advies met focus op sterke kasstromen."
-        target_mean = info.get('targetMeanPrice')
-        if target_mean:
-            analyst_opinion = f"Gemiddeld analisten koersdoel: ₺{target_mean:.2f} (consensus verwacht sterke kwartaalwinst)."
-
-        earnings_date = "Onbekend"
-        try:
-            cal = stock.calendar
-            if isinstance(cal, dict) and 'Earnings Date' in cal and len(cal['Earnings Date']) > 0:
-                earnings_date = str(cal['Earnings Date'][0])[:10]
-        except:
-            pass
-
-        score = 4.0
-        reasons = []
-        if price > sma10:
-            score += 1.5
-            reasons.append("Boven SMA10")
-        if price > sma50:
-            score += 1.0
-            reasons.append("Boven SMA50")
-        if 30 <= rsi <= 75:
-            score += 1.5
-            reasons.append(f"Gezonde RSI ({rsi:.1f})")
-        if alpha > 0:
-            score += 1.0
-            reasons.append(f"Alpha vs XU100 (+{alpha}%)")
-        
-        geo_note = "Stabiele macro-omgeving"
-        if ticker in ['THYAO.IS', 'EREGL.IS', 'SISE.IS', 'TUPRS.IS'] and macro['dev']:
-            score += 1.0
-            reasons.append("Devaluatie-buffer actief (+1p)")
-            geo_note = "🛡️ Harde valuta inkomsten bieden bescherming tegen Lira-druk."
-        if ticker == 'THYAO.IS' and macro['oil_shock']:
-            score -= 1.0
-            reasons.append("Hogere brandstofkosten druk (-1p)")
-            geo_note = "⚠️ Analisten waarschuwen voor druk op marges door dure kerosine."
-        elif ticker == 'TUPRS.IS' and macro['oil_shock']:
-            score += 0.5
-            reasons.append("Raffinagemarge voordeel (+0.5p)")
-            geo_note = "🛢️ Analisten zien sterke kasstromen door olievolatiliteit."
-        elif ticker == 'ASELS.IS':
-            score += 1.0
-            reasons.append("Defensie-buffer (+1p)")
-            geo_note = "🌍 Sterke orderportefeuille en gunstige analistenprognoses."
-
-        score = round(min(10.0, max(1.0, score)), 1)
-        atr = float((hist['High'] - hist['Low']).rolling(14).mean().iloc[-1])
-        if np.isnan(atr) or atr <= 0:
-            atr = price * 0.02
-
-        return {
-            "ticker": ticker, "name": name, "price": round(price, 2), "score": score,
-            "daytrade": daytrade_kans, "patroon": patroon, "dip": recovery_dip,
-            "s1": s1, "s2": s2, "r1": r1, "r2": r2,
-            "stop": round(price - atr, 2), "target": round(price + (1.5 * atr), 2),
-            "earnings": earnings_date, "analyst": analyst_opinion, "geo_note": geo_note, "reasons": reasons
-        }
-    except:
-        return None
-
-st.sidebar.header("⚙️ Instellingen")
-sec = st.sidebar.selectbox("Selecteer Sector", list(SECTORS.keys()))
-watchlist = SECTORS[sec]
-
-macro = get_macro()
-market_intel = get_market_intelligence(macro)
-
-st.header("📊 BIST 100 Index, Valuta & Geopolitiek")
-col1, col2, col3 = st.columns(3)
-col1.metric("BIST 100 (XU100)", f"{macro['xu100']:.0f} ptn", f"{macro['xu100_r1d']}% (1d)")
-col2.metric("USD / TRY", f"₺{macro['usd']:.2f}")
-col3.metric("Brent Olie", f"${macro['brent']:.2f}")
-
-st.info(f"🛡️ **BIST 100 Technische Niveaus:** Steun S1 = **{macro['s1']}** (S2: {macro['s2']}) | ⚡ Weerstand R1 = **{macro['r1']}** (R2: {macro['r2']})")
-
-with st.expander("🌍 Analistenconsensus & Macro Marktanalyse", expanded=True):
-    for item in market_intel:
-        st.markdown(item)
-
-st.divider()
-st.header(f"🏆 Ranglijst: {sec}")
-
-results = [res for t in watchlist if (res := analyze(t, macro)) is not None]
-if results:
-    results = sorted(results, key=lambda x: x['score'], reverse=True)
-    tot = sum(r['score'] for r in results)
+def get_detailed_weekly_outlook(macro):
+    huidige_week = (
+        "📅 **Verwachting voor deze week:**\n"
+        f"• **Marktstatus & Technische Zone:** De BIST 100 noteert rond {macro['xu100']:.0f} punten, manoeuvrerend tussen de harde steun op **{macro['s1']}** en de weerstand op **{macro['r1']}**. "
+        "De markt laat momenteel verhoogde volatiliteit zien door liquiditeitsherstructurering bij lokale fondsen en winstnemingen in het bankenveld.\n"
+        "• **Korte Termijn Katalysatoren:** Handelen blijft voornamelijk gedreven door dagelijkse macro-data, valutaschommelingen (USD/TRY rond ₺{macro['usd']:.2f}) en institutionele herbalancering richting het einde van de week. "
+        "Zolang de steun van S1 standhoudt, is een technische opleving vanaf oververkochte niveaus waarschijnlijk."
+    )
     
-    for row in results:
-        w = round((row['score'] / tot) * 100, 1)
-        with st.expander(f"🔹 {row['name']} ({row['ticker']}) — Cijfer: {row['score']}/10 ({w}% Budget)"):
-            st.markdown(f"**Koers:** ₺{row['price']}")
-            st.markdown(f"**Daytrade Kans:** {row['daytrade']}")
-            st.markdown(f"**Technische Niveaus:** 🛡️ Steun: S1 = ₺{row['s1']} (S2: ₺{row['s2']}) | ⚡ Weerstand: R1 = ₺{row['r1']} (R2: ₺{row['r2']})")
-            st.markdown(f"**Voorspellend Patroon:** {row['patroon']}")
-            st.markdown(f"**Analisten & Kwartaalverwachtingen:** 💡 {row['analyst']}")
-            st.markdown(f"**Volgende Kwartaalcijfers:** {row['earnings']}")
-            st.markdown(f"**Geopolitiek & Macro-impact:** {row['geo_note']}")
-            st.info(f"**Onderbouwing:** {', '.join(row['reasons'])}")
+    volgende_week = (
+        "🔮 **Verwachting voor volgende week & Middellange termijn:**\n"
+        "• **Macro- en Rente-Agenda:** Volgende week verschuift de focus volledig naar de macro-economische cijfers en eventuele signalen van de centrale banken (TCMB, Fed en ECB) omtrent het rentetraject. "
+        "Dit bepaalt direct of de buitenlandse kapitaalinstroom (via MSCI-indexen
