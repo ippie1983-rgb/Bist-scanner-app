@@ -16,7 +16,6 @@ WATCHLIST = [
 
 @st.cache_data(ttl=300)
 def analyze_macro_and_global_news():
-    # 1. USD/TRY Devaluatie-tracking
     usd_try = 49.50
     try:
         df = yf.Ticker("USDTRY=X").history(period="5d")
@@ -25,7 +24,6 @@ def analyze_macro_and_global_news():
     except Exception:
         pass
         
-    # 2. BIST 100 Benchmark Rendement
     mkt_ret = 0.0
     try:
         df = yf.Ticker("XU100.IS").history(period="3mo")
@@ -34,7 +32,6 @@ def analyze_macro_and_global_news():
     except Exception:
         pass
 
-    # 3. Geopolitiek & Wereldwijd Nieuws / Schandalen Filter
     global_warnings = []
     try:
         url = "https://news.google.com/rss/search?q=Turkey+economy+geopolitical+risk+oil+market&hl=en-US&gl=US&ceid=US:en"
@@ -65,11 +62,9 @@ def analyze_stock(ticker, dev_risk):
         name = str(info.get('longName') or ticker)
         price = float(hist['Close'].iloc[-1])
         
-        # Analisten & Consensus vertalen naar Nederlands
         target_mean = info.get('targetMeanPrice')
         raw_rec = str(info.get('recommendationKey', 'hold')).upper()
         
-        # Vertaaltabel voor analistenadviezen
         advies_map = {
             'BUY': 'KOPEN',
             'STRONG_BUY': 'STERK KOPEN',
@@ -80,7 +75,6 @@ def analyze_stock(ticker, dev_risk):
         analyst_recommendation = advies_map.get(raw_rec, 'HOUDEN')
         num_analysts = info.get('numberOfAnalystOpinions', 0)
         
-        # Daytrading Pivot Niveaus
         if len(hist) >= 2:
             h, l, c = float(hist['High'].iloc[-2]), float(hist['Low'].iloc[-2]), float(hist['Close'].iloc[-2])
         else:
@@ -90,7 +84,6 @@ def analyze_stock(ticker, dev_risk):
         r1 = round((2 * pivot) - l, 2)
         s1 = round((2 * pivot) - h, 2)
         
-        # Technische Indicatoren (SMA & RSI)
         sma = float(hist['Close'].rolling(min(10, len(hist))).mean().iloc[-1])
         delta = hist['Close'].diff()
         gain = delta.clip(lower=0).rolling(14).mean()
@@ -109,6 +102,33 @@ def analyze_stock(ticker, dev_risk):
         if price > sma: 
             points += 1.5
             reasons.append("Koers boven korte SMA (+1.5p)")
+        
+        # Volledig op één regel gezet om syntaxfouten te voorkomen
         if 30 <= rsi <= 80: 
             points += 1.5
-            reasons.append(f"Gezonde RSI ({rsi
+            reasons.append(f"Gezonde RSI ({rsi:.1f}) (+1.5p)")
+            
+        if ticker in ['THYAO.IS', 'EREGL.IS', 'SISE.IS', 'TUPRS.IS'] and dev_risk:
+            points += 2.0
+            reasons.append("Devaluatie-buffer actief (+2.0p)")
+            
+        if raw_rec in ['BUY', 'STRONG_BUY']:
+            points += 1.0
+            reasons.append(f"Analisten consensus: {analyst_recommendation} (+1.0p)")
+        elif raw_rec in ['UNDERPERFORM', 'SELL']:
+            points -= 1.0
+            reasons.append(f"Analisten consensus: {analyst_recommendation} (-1.0p)")
+            
+        score = round(min(10.0, max(1.0, points)), 1)
+        
+        if len(hist) >= 14:
+            atr = float((hist['High'] - hist['Low']).rolling(14).mean().iloc[-1])
+        else:
+            atr = price * 0.03
+        
+        return {
+            "Ticker": ticker, 
+            "Bedrijf": name, 
+            "Prijs (TRY)": round(price, 2), 
+            "RSI": round(rsi, 1),
+            "Cijfer":
