@@ -1,55 +1,3 @@
-import streamlit as st
-import yfinance as yf
-import pandas as pd
-import numpy as np
-import urllib.request
-import xml.etree.ElementTree as ET
-
-st.set_page_config(page_title="BIST Quant & Fundamentele Analyse", layout="wide")
-
-WATCHLIST = [
-    'GARAN.IS', 'AKBNK.IS', 'EREGL.IS', 'THYAO.IS', 
-    'TUPRS.IS', 'KCHOL.IS', 'SAHOL.IS', 'BIMAS.IS',
-    'YKBNK.IS', 'ISCTR.IS', 'ASELS.IS', 'SISE.IS', 'MGROS.IS'
-]
-
-@st.cache_data(ttl=300)
-def analyze_macro_and_global_news():
-    usd_try = 49.50
-    try:
-        df = yf.Ticker("USDTRY=X").history(period="5d")
-        if not df.empty and 'Close' in df.columns:
-            usd_try = float(df['Close'].iloc[-1])
-    except Exception:
-        pass
-        
-    mkt_ret = 0.0
-    try:
-        df = yf.Ticker("XU100.IS").history(period="3mo")
-        if not df.empty and len(df) > 1 and 'Close' in df.columns:
-            mkt_ret = round(float((df['Close'].iloc[-1] - df['Close'].iloc[0]) / df['Close'].iloc[0]) * 100, 2)
-    except Exception:
-        pass
-
-    global_warnings = []
-    try:
-        url = "https://news.google.com/rss/search?q=Turkije+economie+geopolitiek+olie&hl=nl&gl=NL&ceid=NL:nl"
-        req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0'})
-        with urllib.request.urlopen(req, timeout=5) as response:
-            xml_data = response.read()
-            root = ET.fromstring(xml_data)
-            for item in root.findall('.//item')[:5]:
-                title = item.find('text') or item.find('title')
-                if title is not None and title.text:
-                    t_lower = title.text.lower()
-                    if any(w in t_lower for w in ['oorlog', 'olie', 'crisis', 'sanctie', 'inflatie', 'onderzoek', 'spk', 'risico', 'geopolitiek', 'turkije']):
-                        global_warnings.append(title.text)
-    except Exception:
-        pass
-
-    dev_risk = usd_try > 48.0
-    return dev_risk, mkt_ret, usd_try, global_warnings
-
 def analyze_stock(ticker, dev_risk):
     try:
         stock = yf.Ticker(ticker)
@@ -74,12 +22,45 @@ def analyze_stock(ticker, dev_risk):
         revenue_growth = info.get('revenueGrowth', 0.0)
         revenue_growth_pct = round(revenue_growth * 100, 2) if revenue_growth else 0.0
         
-        # P/E (Fiyat / Kazanç) en P/B (Piyasa Değeri / Defter Değeri)
-        pe_ratio = info.get('trailingPE')
-        pe_val = round(pe_ratio, 2) if pe_ratio and pe_ratio > 0 else 0.0
-        
-        pb_ratio = info.get('priceToBook')
-        pb_val = round(pb_ratio, 2) if pb_ratio and pb_ratio > 0 else 0.0
+        # --- NAUWKEURIGE BEREKENING P/E EN P/B VIA FINANCIALS & BALANCE SHEET ---
+        pe_val = 0.0
+        pb_val = 0.0
+        try:
+            # P/E berekenen via Netto Winst (Trailing Net Income) en Marktkapitalisatie
+            financials = stock.financials
+            shares = info.get('sharesOutstanding')
+            if financials is not None and not financials.empty and shares and shares > 0:
+                # Zoek naar net income in de financials
+                net_income_rows = [row for row in financials.index if 'Net Income' in row]
+                if net_income_rows:
+                    net_income = financials.loc[net_income_rows[0]].iloc[0]
+                    market_cap = price * shares
+                    if net_income and net_income > 0:
+                        pe_val = round(market_cap / net_income, 2)
+            
+            # Fallback op info als financials faalt
+            if pe_val == 0.0 and info.get('trailingPE'):
+                pe_val = round(float(info.get('trailingPE')), 2)
+        except Exception:
+            pe_val = round(float(info.get('trailingPE', 0.0)), 2) if info.get('trailingPE') else 0.0
+
+        try:
+            # P/B berekenen via Boekwaarde (Total Stockholder Equity)
+            balance_sheet = stock.balance_sheet
+            shares = info.get('sharesOutstanding')
+            if balance_sheet is not None and not balance_sheet.empty and shares and shares > 0:
+                equity_rows = [row for row in balance_sheet.index if 'Stockholder Equity' in row or 'Total Equity' in row]
+                if equity_rows:
+                    total_equity = balance_sheet.loc[equity_rows[0]].iloc[0]
+                    book_value_per_share = total_equity / shares
+                    if book_value_per_share > 0:
+                        pb_val = round(price / book_value_per_share, 2)
+            
+            if pb_val == 0.0 and info.get('priceToBook'):
+                pb_val = round(float(info.get('priceToBook')), 2)
+        except Exception:
+            pb_val = round(float(info.get('priceToBook', 0.0)), 2) if info.get('priceToBook') else 0.0
+        # -----------------------------------------------------------------------
         
         if len(hist) >= 2:
             h, l, c = float(hist['High'].iloc[-2]), float(hist['Low'].iloc[-2]), float(hist['Close'].iloc[-2])
@@ -157,68 +138,3 @@ def analyze_stock(ticker, dev_risk):
 
     except Exception:
         return None
-
-st.title("🧠 BIST Quant Trading Bot & Fundamentele Suite")
-st.markdown("---")
-
-dev_risk, mkt_ret, usd_try, global_warnings = analyze_macro_and_global_news()
-
-col1, col2 = st.columns(2)
-with col1:
-    st.metric(label="💱 USD/TRY Koers", value=f"₺{usd_try:.2f}", delta="Devaluatie-risico actief" if dev_risk else "Stabiel")
-with col2:
-    st.metric(label="📈 BIST 100 (3m Rendement)", value=f"{mkt_ret}%")
-
-st.markdown("### 🌍 Geopolitieke Risico's & Wereldnieuws Scanner")
-if global_warnings:
-    for warning in global_warnings[:3]:
-        st.warning(f"⚠️ **Geopolitiek signaal:** {warning}")
-else:
-    st.success("🛡️ Geen directe extreme geopolitieke schokken of sancties gedetecteerd.")
-
-st.markdown("### 🎯 Geopolitieke & Macro 'Top 3' Thematische Selectie")
-st.markdown("Op basis van het actuele macro-klimaat en de valutastatus onderscheiden de volgende sectoren/aandelen zich momenteel het sterkst:")
-
-col_t1, col_t2, col_t3 = st.columns(3)
-with col_t1:
-    st.info("✈️ **1. THYAO.IS (Luchtvaart / Harde Valuta)**\n\n*Waarom:* Profiteert van wereldwijde omzet in vreemde valuta (USD/EUR), wat dient als natuurlijke buffer bij devaluatierisico's.")
-with col_t2:
-    st.info("🛢️ **2. TUPRS.IS (Energie / Raffinage)**\n\n*Waarom:* Sterke positie in olieraffinage en margebescherming tijdens wereldwijde olieschokken of geopolitieke spanningen.")
-with col_t3:
-    st.info("🏗️ **3. EREGL.IS / KCHOL.IS (Zware Industrie / Conglomeraat)**\n\n*Waarom:* Robuuste balansen en inflatiebestendige activa die fungeren als veilige haven in turbulente markttijden.")
-
-st.markdown("---")
-st.markdown("### 🏆 Live Ranglijst, Officiële Cijfers & Waardering")
-
-if st.button("Start Volledige Quant & Fundamentele Analyse"):
-    with st.spinner("Bezig met ophalen van officiële bedrijfsresultaten, waarderingen (P/E, P/B) en analistenprognoses..."):
-        results = []
-        for t in WATCHLIST:
-            res = analyze_stock(t, dev_risk)
-            if res: 
-                results.append(res)
-            
-        if results:
-            df_res = pd.DataFrame(results)
-            df_res = df_res.sort_values(by="Cijfer", ascending=False).reset_index(drop=True)
-            
-            tot = df_res["Cijfer"].sum()
-            df_res["Weging %"] = df_res["Cijfer"].apply(lambda x: round((x / tot) * 100, 2) if tot > 0 else 0)
-            
-            st.success("Analyse succesvol voltooid!")
-            
-            st.dataframe(df_res[['Bedrijf', 'Ticker', 'Cijfer', 'Prijs (TRY)', 'P/E (FK)', 'P/B (PD/DD)', 'Winstmarge %', 'Omzetgroei %', 'Koersdoel (₺)', 'Advies', 'Weging %']], use_container_width=True)
-            
-            for index, row in df_res.iterrows():
-                with st.expander(f"{row['Bedrijf']} ({row['Ticker']}) — Systeemcijfer: {row['Cijfer']}/10"):
-                    st.write(f"**Huidige Koers:** ₺{row['Prijs (TRY)']} | **RSI:** {row['RSI']} | **Portefeuille Weging:** {row['Weging %']}%")
-                    st.write(f"**Waardering & Fundamentals:** P/E (Fiyat/Kazanç): {row['P/E (FK)']} | P/B (Piyasa/Değer): {row['P/B (PD/DD)']} | Winstmarge: {row['Winstmarge %']}% | Omzetgroei: {row['Omzetgroei %']}%")
-                    st.write(f"**Analisten Consensus:** {row['Advies']} (Gemiddeld Doelkoers: ₺{row['Koersdoel (₺)']} | Aantal analisten: {row['Analisten']})")
-                    st.write(f"📊 **Toekomst Outlook & Samenvatting:** {row['Toekomst Outlook']}")
-                    st.write(f"**Daytrading Niveaus:** Weerstand R1: ₺{row['Res1']} | Steun S1: ₺{row['Sup1']}")
-                    st.write(f"**Risicobeheer:** Stop-Loss: ₺{row['StopLoss']} | Doel: ₺{row['Doel']}")
-                    st.write(f"**Technische Onderbouwing:** {row['Onderbouwing']}")
-        else:
-            st.warning("Geen resultaten gevonden.")
-else:
-    st.info("Klik op de knop hierboven om de live analyse te starten.")
