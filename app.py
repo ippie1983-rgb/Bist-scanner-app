@@ -74,6 +74,13 @@ def analyze_stock(ticker, dev_risk):
         revenue_growth = info.get('revenueGrowth', 0.0)
         revenue_growth_pct = round(revenue_growth * 100, 2) if revenue_growth else 0.0
         
+        # P/E (Fiyat / Kazanç) en P/B (Piyasa Değeri / Defter Değeri)
+        pe_ratio = info.get('trailingPE')
+        pe_val = round(pe_ratio, 2) if pe_ratio and pe_ratio > 0 else 0.0
+        
+        pb_ratio = info.get('priceToBook')
+        pb_val = round(pb_ratio, 2) if pb_ratio and pb_ratio > 0 else 0.0
+        
         if len(hist) >= 2:
             h, l, c = float(hist['High'].iloc[-2]), float(hist['Low'].iloc[-2]), float(hist['Close'].iloc[-2])
         else:
@@ -124,7 +131,7 @@ def analyze_stock(ticker, dev_risk):
         else:
             atr = price * 0.03
         
-        toekomst_outlook = f"Winstmarge bedraagt {profit_margin_pct}%. Omzetgroei j-o-j is {revenue_growth_pct}%. Koersdoel analisten: ₺{target_mean if target_mean else 'N.B.'}."
+        toekomst_outlook = f"Winstmarge: {profit_margin_pct}%. Omzetgroei j-o-j: {revenue_growth_pct}%. Koersdoel analisten: ₺{target_mean if target_mean else 'N.B.'}."
 
         stock_data = {
             "Ticker": ticker, 
@@ -132,6 +139,8 @@ def analyze_stock(ticker, dev_risk):
             "Prijs (TRY)": round(price, 2), 
             "RSI": round(rsi, 1),
             "Cijfer": score, 
+            "P/E (FK)": pe_val,
+            "P/B (PD/DD)": pb_val,
             "Winstmarge %": profit_margin_pct,
             "Omzetgroei %": revenue_growth_pct,
             "Koersdoel (₺)": round(target_mean, 2) if target_mean else 0.0,
@@ -165,39 +174,4 @@ if global_warnings:
     for warning in global_warnings[:3]:
         st.warning(f"⚠️ **Geopolitiek signaal:** {warning}")
 else:
-    st.success("🛡️ Geen directe extreme geopolitieke schokken of sancties gedetecteerd.")
-
-st.markdown("---")
-st.markdown("### 🏆 Live Ranglijst, Officiële Cijfers & Toekomstverwachtingen")
-
-if st.button("Start Volledige Quant & Fundamentele Analyse"):
-    with st.spinner("Bezig met ophalen van officiële bedrijfsresultaten en analistenprognoses..."):
-        results = []
-        for t in WATCHLIST:
-            res = analyze_stock(t, dev_risk)
-            if res: 
-                results.append(res)
-            
-        if results:
-            df_res = pd.DataFrame(results)
-            df_res = df_res.sort_values(by="Cijfer", ascending=False).reset_index(drop=True)
-            
-            tot = df_res["Cijfer"].sum()
-            df_res["Weging %"] = df_res["Cijfer"].apply(lambda x: round((x / tot) * 100, 2) if tot > 0 else 0)
-            
-            st.success("Analyse succesvol voltooid!")
-            st.dataframe(df_res[['Bedrijf', 'Ticker', 'Cijfer', 'Prijs (TRY)', 'Winstmarge %', 'Omzetgroei %', 'Koersdoel (₺)', 'Advies', 'Weging %']], use_container_width=True)
-            
-            for index, row in df_res.iterrows():
-                with st.expander(f"{row['Bedrijf']} ({row['Ticker']}) — Systeemcijfer: {row['Cijfer']}/10"):
-                    st.write(f"**Huidige Koers:** ₺{row['Prijs (TRY)']} | **RSI:** {row['RSI']} | **Portefeuille Weging:** {row['Weging %']}%")
-                    st.write(f"**Officiële Fundamentele Cijfers:** Winstmarge: {row['Winstmarge %']}% | Omzetgroei: {row['Omzetgroei %']}%")
-                    st.write(f"**Analisten Consensus:** {row['Advies']} (Gemiddeld Doelkoers: ₺{row['Koersdoel (₺)']} | Aantal analisten: {row['Analisten']})")
-                    st.write(f"📊 **Toekomst Outlook & Samenvatting:** {row['Toekomst Outlook']}")
-                    st.write(f"**Daytrading Niveaus:** Weerstand R1: ₺{row['Res1']} | Steun S1: ₺{row['Sup1']}")
-                    st.write(f"**Risicobeheer:** Stop-Loss: ₺{row['StopLoss']} | Doel: ₺{row['Doel']}")
-                    st.write(f"**Technische Onderbouwing:** {row['Onderbouwing']}")
-        else:
-            st.warning("Geen resultaten gevonden.")
-else:
-    st.info("Klik op de knop hierboven om de live analyse te starten.")
+    st.success("🛡️ Geen directe
