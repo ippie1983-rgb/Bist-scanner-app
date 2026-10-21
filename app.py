@@ -111,16 +111,3 @@ def analyze_stock(ticker, dev_risk):
         if 30 <= rsi <= 80: 
             points += 1.5
             reasons.append(f"Gezonde RSI ({rsi:.1f}) (+1.5p)")
-            
-        if ticker in ['THYAO.IS', 'EREGL.IS', 'SISE.IS', 'TUPRS.IS'] and dev_risk:
-            points += 2.0
-            reasons.append("Devaluatie-buffer actief (+2.0p)")
-            
-        if raw_rec in ['BUY', 'STRONG_BUY']:
-            points += 1.0
-            reasons.append(f"Analisten consensus: {analyst_recommendation} (+1.0p)")
-        elif raw_rec in ['UNDERPERFORM', 'SELL']:
-            points -= 1.0
-            reasons.append(f"Analisten consensus: {analyst_recommendation} (-1.0p)")
-            
-        score = round(min(10.
