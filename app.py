@@ -89,3 +89,135 @@ def analyze_stock(ticker, dev_risk):
         r1 = round((2 * pivot) - l, 2)
         s1 = round((2 * pivot) - h, 2)
         
+        sma = float(hist['Close'].rolling(min(10, len(hist))).mean().iloc[-1])
+        delta = hist['Close'].diff()
+        gain = delta.clip(lower=0).rolling(14).mean()
+        loss = (-delta.clip(upper=0)).rolling(14).mean()
+        
+        rsi = 50.0
+        if not gain.empty and not loss.empty:
+            rs_val = gain / loss
+            rsi_series = 100 - (100 / (1 + rs_val))
+            if not rsi_series.empty:
+                rsi = float(rsi_series.iloc[-1])
+        
+        points = 4.0
+        reasons = []
+        
+        if price > sma: 
+            points += 1.5
+            reasons.append("Koers boven korte SMA (+1.5p)")
+            
+        if 30 <= rsi <= 80: 
+            points += 1.5
+            reasons.append(f"Gezonde RSI ({rsi:.1f}) (+1.5p)")
+            
+        if ticker in ['THYAO.IS', 'EREGL.IS', 'SISE.IS', 'TUPRS.IS'] and dev_risk:
+            points += 2.0
+            reasons.append("Devaluatie-buffer actief (+2.0p)")
+            
+        if raw_rec in ['BUY', 'STRONG_BUY']:
+            points += 1.0
+            reasons.append(f"Analisten consensus: {analyst_recommendation} (+1.0p)")
+        elif raw_rec in ['UNDERPERFORM', 'SELL']:
+            points -= 1.0
+            reasons.append(f"Analisten consensus: {analyst_recommendation} (-1.0p)")
+            
+        score = round(min(10.0, max(1.0, points)), 1)
+        
+        if len(hist) >= 14:
+            atr = float((hist['High'] - hist['Low']).rolling(14).mean().iloc[-1])
+        else:
+            atr = price * 0.03
+        
+        toekomst_outlook = f"Winstmarge: {profit_margin_pct}%. Omzetgroei j-o-j: {revenue_growth_pct}%. Koersdoel analisten: ₺{target_mean if target_mean else 'N.B.'}."
+
+        stock_data = {
+            "Ticker": ticker, 
+            "Bedrijf": name, 
+            "Prijs (TRY)": round(price, 2), 
+            "RSI": round(rsi, 1),
+            "Cijfer": score, 
+            "P/E (FK)": pe_val,
+            "P/B (PD/DD)": pb_val,
+            "Winstmarge %": profit_margin_pct,
+            "Omzetgroei %": revenue_growth_pct,
+            "Koersdoel (₺)": round(target_mean, 2) if target_mean else 0.0,
+            "Advies": analyst_recommendation,
+            "Analisten": num_analysts,
+            "Res1": r1, 
+            "Sup1": s1, 
+            "StopLoss": round(price - atr, 2),
+            "Doel": round(price + (1.5 * atr), 2), 
+            "Toekomst Outlook": toekomst_outlook,
+            "Onderbouwing": ", ".join(reasons)
+        }
+        return stock_data
+
+    except Exception:
+        return None
+
+st.title("BIST Quant Trading Bot & Fundamentele Suite")
+st.markdown("---")
+
+dev_risk, mkt_ret, usd_try, global_warnings = analyze_macro_and_global_news()
+
+col1, col2 = st.columns(2)
+with col1:
+    st.metric(label="USD/TRY Koers", value=f"₺{usd_try:.2f}", delta="Devaluatie-risico actief" if dev_risk else "Stabiel")
+with col2:
+    st.metric(label="BIST 100 (3m Rendement)", value=f"{mkt_ret}%")
+
+st.markdown("### Geopolitieke Risico's & Wereldnieuws Scanner")
+if global_warnings:
+    for warning in global_warnings[:3]:
+        st.warning(f"Geopolitiek signaal: {warning}")
+else:
+    st.success("Geen directe extreme geopolitieke schokken of sancties gedetecteerd.")
+
+st.markdown("### Geopolitieke & Macro 'Top 3' Thematische Selectie")
+st.markdown("Op basis van het actuele macro-klimaat en de valutastatus onderscheiden de volgende sectoren/aandelen zich momenteel het sterkst:")
+
+col_t1, col_t2, col_t3 = st.columns(3)
+with col_t1:
+    st.info("1. THYAO.IS (Luchtvaart / Harde Valuta)\n\n*Waarom:* Profiteert van wereldwijde omzet in vreemde valuta (USD/EUR), wat dient als natuurlijke buffer bij devaluatierisico's.")
+with col_t2:
+    st.info("2. TUPRS.IS (Energie / Raffinage)\n\n*Waarom:* Sterke positie in olieraffinage en margebescherming tijdens wereldwijde olieschokken of geopolitieke spanningen.")
+with col_t3:
+    st.info("3. EREGL.IS / KCHOL.IS (Zware Industrie / Conglomeraat)\n\n*Waarom:* Robuuste balansen en inflatiebestendige activa die fungeren als veilige haven in turbulente markttijden.")
+
+st.markdown("---")
+st.markdown("### Live Ranglijst, Officiële Cijfers & Waardering")
+
+if st.button("Start Volledige Quant & Fundamentele Analyse"):
+    with st.spinner("Bezig met ophalen van officiële bedrijfsresultaten, waarderingen (P/E, P/B) en analistenprognoses..."):
+        results = []
+        for t in WATCHLIST:
+            res = analyze_stock(t, dev_risk)
+            if res: 
+                results.append(res)
+            
+        if results:
+            df_res = pd.DataFrame(results)
+            df_res = df_res.sort_values(by="Cijfer", ascending=False).reset_index(drop=True)
+            
+            tot = df_res["Cijfer"].sum()
+            df_res["Weging %"] = df_res["Cijfer"].apply(lambda x: round((x / tot) * 100, 2) if tot > 0 else 0)
+            
+            st.success("Analyse succesvol voltooid!")
+            
+            st.dataframe(df_res[['Bedrijf', 'Ticker', 'Cijfer', 'Prijs (TRY)', 'P/E (FK)', 'P/B (PD/DD)', 'Winstmarge %', 'Omzetgroei %', 'Koersdoel (₺)', 'Advies', 'Weging %']], use_container_width=True)
+            
+            for index, row in df_res.iterrows():
+                with st.expander(f"{row['Bedrijf']} ({row['Ticker']}) — Systeemcijfer: {row['Cijfer']}/10"):
+                    st.write(f"**Huidige Koers:** ₺{row['Prijs (TRY)']} | **RSI:** {row['RSI']} | **Portefeuille Weging:** {row['Weging %']}%")
+                    st.write(f"**Waardering & Fundamentals:** P/E (Fiyat/Kazanç): {row['P/E (FK)']} | P/B (Piyasa/Değer): {row['P/B (PD/DD)']} | Winstmarge: {row['Winstmarge %']}% | Omzetgroei: {row['Omzetgroei %']}%")
+                    st.write(f"**Analisten Consensus:** {row['Advies']} (Gemiddeld Doelkoers: ₺{row['Koersdoel (₺)']} | Aantal analisten: {row['Analisten']})")
+                    st.write(f"📊 **Toekomst Outlook & Samenvatting:** {row['Toekomst Outlook']}")
+                    st.write(f"**Daytrading Niveaus:** Weerstand R1: ₺{row['Res1']} | Steun S1: ₺{row['Sup1']}")
+                    st.write(f"**Risicobeheer:** Stop-Loss: ₺{row['StopLoss']} | Doel: ₺{row['Doel']}")
+                    st.write(f"**Technische Onderbouwing:** {row['Onderbouwing']}")
+        else:
+            st.warning("Geen resultaten gevonden.")
+else:
+    st.info("Klik op de knop hierboven om de live analyse te starten.")
