@@ -31,9 +31,10 @@ def analyze_macro_and_global_news():
     except Exception:
         pass
 
+    # Aangepast naar Nederlandse Google News RSS feed voor Nederlandstalig nieuws over Turkije/economie
     global_warnings = []
     try:
-        url = "https://news.google.com/rss/search?q=Turkey+economy+geopolitical+risk+oil+market&hl=en-US&gl=US&ceid=US:en"
+        url = "https://news.google.com/rss/search?q=Turkije+economie+geopolitiek+olie&hl=nl&gl=NL&ceid=NL:nl"
         req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0'})
         with urllib.request.urlopen(req, timeout=5) as response:
             xml_data = response.read()
@@ -42,7 +43,7 @@ def analyze_macro_and_global_news():
                 title = item.find('text') or item.find('title')
                 if title is not None and title.text:
                     t_lower = title.text.lower()
-                    if any(w in t_lower for w in ['war', 'oil', 'crisis', 'sanction', 'inflation', 'investigation', 'spk', 'risk', 'geopolitical']):
+                    if any(w in t_lower for w in ['oorlog', 'olie', 'crisis', 'sanctie', 'inflatie', 'onderzoek', 'spk', 'risico', 'geopolitiek', 'turkije']):
                         global_warnings.append(title.text)
     except Exception:
         pass
@@ -155,12 +156,12 @@ with col1:
 with col2:
     st.metric(label="📈 BIST 100 (3m Rendement)", value=f"{mkt_ret}%")
 
-st.markdown("### 🌍 Geopolitieke Risico's & Wereldnieuws Scanner")
+st.markdown("### 🌍 Geopolitieke Risico's & Wereldnieuws Scanner (Nederlands)")
 if global_warnings:
     for warning in global_warnings[:3]:
-        st.warning(f"⚠️ **Wereldwijd/Geopolitiek signaal:** {warning}")
+        st.warning(f"⚠️ **Geopolitiek signaal:** {warning}")
 else:
-    st.success("🛡️ Geen directe extreme geopolitieke schokken of sancties gedetecteerd in de live feeds.")
+    st.success("🛡️ Geen directe extreme geopolitieke schokken of sancties gedetecteerd in de Nederlandse feeds.")
 
 st.markdown("---")
 st.markdown("### 🏆 Live Ranglijst, Analisten & Niveaus")
