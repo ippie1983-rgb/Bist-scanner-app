@@ -61,28 +61,18 @@ def analyze_stock(ticker, dev_risk):
         name = str(info.get('longName') or ticker)
         price = float(hist['Close'].iloc[-1])
         
-        # Officiële fundamentele data & kwartaal/winst verwachtingen
         target_mean = info.get('targetMeanPrice')
         raw_rec = str(info.get('recommendationKey', 'hold')).upper()
         
-        advies_map = {
-            'BUY': 'KOPEN', 
-            'STRONG_BUY': 'STERK KOPEN', 
-            'HOLD': 'HOUDEN', 
-            'UNDERPERFORM': 'ONDERPRESTATIE', 
-            'SELL': 'VERKOPEN'
-        }
+        advies_map = {'BUY': 'KOPEN', 'STRONG_BUY': 'STERK KOPEN', 'HOLD': 'HOUDEN', 'UNDERPERFORM': 'ONDERPRESTATIE', 'SELL': 'VERKOPEN'}
         analyst_recommendation = advies_map.get(raw_rec, 'HOUDEN')
         num_analysts = info.get('numberOfAnalystOpinions', 0)
         
-        # Officiële marges en financiële ratio's uit bedrijfsdata
         profit_margin = info.get('profitMargins', 0.0)
         profit_margin_pct = round(profit_margin * 100, 2) if profit_margin else 0.0
         
         revenue_growth = info.get('revenueGrowth', 0.0)
         revenue_growth_pct = round(revenue_growth * 100, 2) if revenue_growth else 0.0
-        
-        pe_ratio = info.get('trailingPE', 0.0)
         
         if len(hist) >= 2:
             h, l, c = float(hist['High'].iloc[-2]), float(hist['Low'].iloc[-2]), float(hist['Close'].iloc[-2])
@@ -103,51 +93,4 @@ def analyze_stock(ticker, dev_risk):
             rs_val = gain / loss
             rsi_series = 100 - (100 / (1 + rs_val))
             if not rsi_series.empty:
-                rsi = float(rsi_series.iloc[-1])
-        
-        points = 4.0
-        reasons = []
-        
-        if price > sma: 
-            points += 1.5
-            reasons.append("Koers boven korte SMA (+1.5p)")
-            
-        if 30 <= rsi <= 80: 
-            points += 1.5
-            reasons.append(f"Gezonde RSI ({rsi:.1f}) (+1.5p)")
-            
-        if ticker in ['THYAO.IS', 'EREGL.IS', 'SISE.IS', 'TUPRS.IS'] and dev_risk:
-            points += 2.0
-            reasons.append("Devaluatie-buffer actief (+2.0p)")
-            
-        if raw_rec in ['BUY', 'STRONG_BUY']:
-            points += 1.0
-            reasons.append(f"Analisten consensus: {analyst_recommendation} (+1.0p)")
-        elif raw_rec in ['UNDERPERFORM', 'SELL']:
-            points -= 1.0
-            reasons.append(f"Analisten consensus: {analyst_recommendation} (-1.0p)")
-            
-        score = round(min(10.0, max(1.0, points)), 1)
-        
-        if len(hist) >= 14:
-            atr = float((hist['High'] - hist['Low']).rolling(14).mean().iloc[-1])
-        else:
-            atr = price * 0.03
-        
-        # Objectieve toekomstsamenvatting op basis van officiële cijfers
-        toekomst_outlook = f"Winstmarge bedraagt {profit_margin_pct}%. Omzetgroei j-o-j is {revenue_growth_pct}%. Koersdoel analisten: ₺{target_mean if target_mean else 'N.B.'}."
-
-        stock_data = {
-            "Ticker": ticker, 
-            "Bedrijf": name, 
-            "Prijs (TRY)": round(price, 2), 
-            "RSI": round(rsi, 1),
-            "Cijfer": score, 
-            "Winstmarge %": profit_margin_pct,
-            "Omzetgroei %": revenue_growth_pct,
-            "Koersdoel (₺)": round(target_mean, 2) if target_mean else 0.0,
-            "Advies": analyst_recommendation,
-            "Analisten": num_analysts,
-            "Res1": r1, 
-            "Sup1": s1, 
-            "StopLoss
+                rsi =
