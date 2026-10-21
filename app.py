@@ -123,7 +123,4 @@ def analyze_stock(ticker, dev_risk, mkt_ret):
             reasons.append(f"📈 Analisten consensus: {analyst_recommendation} (+1.0p)")
         elif analyst_recommendation in ['UNDERPERFORM', 'SELL']:
             points -= 1.0
-            reasons.append(f"📉 Analisten consensus: {analyst_recommendation} (-1.0p)")
-            
-        score = round(min(10.0, max(1.0, points)), 1)
-        atr = float((
+            reasons.append(f"📉 Analisten consensus: {analyst_recommendation
