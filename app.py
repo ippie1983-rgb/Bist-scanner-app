@@ -6,7 +6,7 @@ import urllib.request
 import xml.etree.ElementTree as ET
 
 # Pagina configuratie
-st.set_page_config(page_title="BIST Quant Trading Bot", layout="wide")
+st.set_page_config(page_title="BIST Quant Trading Bot & Macro Suite", layout="wide")
 
 WATCHLIST = [
     'GARAN.IS', 'AKBNK.IS', 'EREGL.IS', 'THYAO.IS', 
@@ -16,6 +16,7 @@ WATCHLIST = [
 
 @st.cache_data(ttl=300)
 def analyze_macro_and_global_news():
+    # 1. USD/TRY Devaluatie-tracking
     usd_try = 49.50
     try:
         df = yf.Ticker("USDTRY=X").history(period="5d")
@@ -24,6 +25,7 @@ def analyze_macro_and_global_news():
     except Exception:
         pass
         
+    # 2. BIST 100 Benchmark Rendement
     mkt_ret = 0.0
     try:
         df = yf.Ticker("XU100.IS").history(period="3mo")
@@ -32,8 +34,25 @@ def analyze_macro_and_global_news():
     except Exception:
         pass
 
+    # 3. Geopolitiek & Wereldwijd Nieuws / Schandalen Filter
+    global_warnings = []
+    try:
+        url = "https://news.google.com/rss/search?q=Turkey+economy+geopolitical+risk+oil+market&hl=en-US&gl=US&ceid=US:en"
+        req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0'})
+        with urllib.request.urlopen(req, timeout=5) as response:
+            xml_data = response.read()
+            root = ET.fromstring(xml_data)
+            for item in root.findall('.//item')[:5]:
+                title = item.find('text') or item.find('title')
+                if title is not None and title.text:
+                    t_lower = title.text.lower()
+                    if any(w in t_lower for w in ['war', 'oil', 'crisis', 'sanction', 'inflation', 'investigation', 'spk', 'risk', 'geopolitical']):
+                        global_warnings.append(title.text)
+    except Exception:
+        pass
+
     dev_risk = usd_try > 48.0
-    return dev_risk, mkt_ret, usd_try
+    return dev_risk, mkt_ret, usd_try, global_warnings
 
 def analyze_stock(ticker, dev_risk):
     try:
@@ -46,10 +65,12 @@ def analyze_stock(ticker, dev_risk):
         name = str(info.get('longName') or ticker)
         price = float(hist['Close'].iloc[-1])
         
+        # Analisten & Consensus
         target_mean = info.get('targetMeanPrice')
         analyst_recommendation = str(info.get('recommendationKey', 'hold')).upper()
         num_analysts = info.get('numberOfAnalystOpinions', 0)
         
+        # Daytrading Pivot Niveaus
         if len(hist) >= 2:
             h, l, c = float(hist['High'].iloc[-2]), float(hist['Low'].iloc[-2]), float(hist['Close'].iloc[-2])
         else:
@@ -59,6 +80,7 @@ def analyze_stock(ticker, dev_risk):
         r1 = round((2 * pivot) - l, 2)
         s1 = round((2 * pivot) - h, 2)
         
+        # Technische Indicatoren (SMA & RSI)
         sma = float(hist['Close'].rolling(min(10, len(hist))).mean().iloc[-1])
         delta = hist['Close'].diff()
         gain = delta.clip(lower=0).rolling(14).mean()
@@ -90,7 +112,7 @@ def analyze_stock(ticker, dev_risk):
             reasons.append(f"Analisten consensus: {analyst_recommendation} (+1.0p)")
         elif analyst_recommendation in ['UNDERPERFORM', 'SELL']:
             points -= 1.0
-            reasons.append(f"Analisten consensus: {analyst_recommendation} (+1.0p)")
+            reasons.append(f"Analisten consensus: {analyst_recommendation} (-1.0p)")
             
         score = round(min(10.0, max(1.0, points)), 1)
         
@@ -117,22 +139,32 @@ def analyze_stock(ticker, dev_risk):
     except Exception:
         return None
 
-# Streamlit Interface
-st.title("🧠 BIST Quant Trading Bot & Dashboard")
+# Streamlit Dashboard Layout
+st.title("🧠 BIST Quant Trading Bot & Geopolitieke Suite")
 st.markdown("---")
 
-dev_risk, mkt_ret, usd_try = analyze_macro_and_global_news()
+dev_risk, mkt_ret, usd_try, global_warnings = analyze_macro_and_global_news()
 
+# Macro Metrics
 col1, col2 = st.columns(2)
 with col1:
-    st.metric(label="💱 USD/TRY Koers", value=f"₺{usd_try:.2f}", delta="Risico actief" if dev_risk else "Stabiel")
+    st.metric(label="💱 USD/TRY Koers", value=f"₺{usd_try:.2f}", delta="Devaluatie-risico actief" if dev_risk else "Stabiel")
 with col2:
     st.metric(label="📈 BIST 100 (3m Rendement)", value=f"{mkt_ret}%")
 
-st.markdown("### 🏆 Live Ranglijst & Niveaus")
+# Geopolitiek & Wereldnieuws sectie
+st.markdown("### 🌍 Geopolitieke Risico's & Wereldnieuws Scanner")
+if global_warnings:
+    for warning in global_warnings[:3]:
+        st.warning(f"⚠️ **Wereldwijd/Geopolitiek signaal:** {warning}")
+else:
+    st.success("🛡️ Geen directe extreme geopolitieke schokken of sancties gedetecteerd in de live feeds.")
 
-if st.button("Start Analyse Scan"):
-    with st.spinner("Gegevens ophalen van Yahoo Finance... Even geduld..."):
+st.markdown("---")
+st.markdown("### 🏆 Live Ranglijst, Analisten & Niveaus")
+
+if st.button("Start Volledige Quant Analyse"):
+    with st.spinner("Bezig met ophalen van koersen, analistenadviezen en wereldnieuws..."):
         results = []
         for t in WATCHLIST:
             res = analyze_stock(t, dev_risk)
@@ -146,17 +178,17 @@ if st.button("Start Analyse Scan"):
             tot = df_res["Cijfer"].sum()
             df_res["Weging %"] = df_res["Cijfer"].apply(lambda x: round((x / tot) * 100, 2) if tot > 0 else 0)
             
-            st.success("Analyse voltooid!")
+            st.success("Analyse succesvol voltooid!")
             st.dataframe(df_res, use_container_width=True)
             
             for index, row in df_res.iterrows():
-                with st.expander(f"{row['Bedrijf']} ({row['Ticker']}) - Cijfer: {row['Cijfer']}/10"):
-                    st.write(f"**Huidige Koers:** ₺{row['Prijs (TRY)']} | **RSI:** {row['RSI']}")
-                    st.write(f"**Analisten Advies:** {row['Advies']} (Doel: ₺{row['AnalistenDoel']} | {row['Analisten']} analisten)")
+                with st.expander(f"{row['Bedrijf']} ({row['Ticker']}) — Systeemcijfer: {row['Cijfer']}/10"):
+                    st.write(f"**Koers:** ₺{row['Prijs (TRY)']} | **RSI:** {row['RSI']} | **Portefeuille Weging:** {row['Weging %']}%")
+                    st.write(f"**Analisten Consensus:** {row['Advies']} (Doelkoers: ₺{row['AnalistenDoel']} | Gebaseerd op {row['Analisten']} analisten)")
                     st.write(f"**Daytrading Niveaus:** Weerstand R1: ₺{row['Res1']} | Steun S1: ₺{row['Sup1']}")
                     st.write(f"**Risicobeheer:** Stop-Loss: ₺{row['StopLoss']} | Doel: ₺{row['Doel']}")
                     st.write(f"**Onderbouwing:** {row['Onderbouwing']}")
         else:
-                st.warning("Geen resultaten gevonden.")
+            st.warning("Geen resultaten gevonden.")
 else:
-    st.info("Klik op de knop hierboven om de scan te starten.")
+    st.info("Klik op de knop hierboven om de live scan te starten.")
