@@ -124,7 +124,6 @@ def analyze_stock(ticker, dev_risk):
         else:
             atr = price * 0.03
         
-        # Schone dictionary zonder gekke regeleinden of foute accolades
         stock_data = {
             "Ticker": ticker, 
             "Bedrijf": name, 
@@ -163,4 +162,35 @@ if global_warnings:
 else:
     st.success("🛡️ Geen directe extreme geopolitieke schokken of sancties gedetecteerd in de live feeds.")
 
-st.
+st.markdown("---")
+st.markdown("### 🏆 Live Ranglijst, Analisten & Niveaus")
+
+if st.button("Start Volledige Quant Analyse"):
+    with st.spinner("Bezig met ophalen van koersen, analistenadviezen en wereldnieuws..."):
+        results = []
+        for t in WATCHLIST:
+            res = analyze_stock(t, dev_risk)
+            if res: 
+                results.append(res)
+            
+        if results:
+            df_res = pd.DataFrame(results)
+            df_res = df_res.sort_values(by="Cijfer", ascending=False).reset_index(drop=True)
+            
+            tot = df_res["Cijfer"].sum()
+            df_res["Weging %"] = df_res["Cijfer"].apply(lambda x: round((x / tot) * 100, 2) if tot > 0 else 0)
+            
+            st.success("Analyse succesvol voltooid!")
+            st.dataframe(df_res, use_container_width=True)
+            
+            for index, row in df_res.iterrows():
+                with st.expander(f"{row['Bedrijf']} ({row['Ticker']}) — Systeemcijfer: {row['Cijfer']}/10"):
+                    st.write(f"**Koers:** ₺{row['Prijs (TRY)']} | **RSI:** {row['RSI']} | **Portefeuille Weging:** {row['Weging %']}%")
+                    st.write(f"**Analisten Consensus:** {row['Advies']} (Doelkoers: ₺{row['AnalistenDoel']} | Gebaseerd op {row['Analisten']} analisten)")
+                    st.write(f"**Daytrading Niveaus:** Weerstand R1: ₺{row['Res1']} | Steun S1: ₺{row['Sup1']}")
+                    st.write(f"**Risicobeheer:** Stop-Loss: ₺{row['StopLoss']} | Doel: ₺{row['Doel']}")
+                    st.write(f"**Onderbouwing:** {row['Onderbouwing']}")
+        else:
+            st.warning("Geen resultaten gevonden.")
+else:
+    st.info("Klik op de knop hierboven om de live scan te starten.")
