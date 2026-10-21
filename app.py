@@ -4,7 +4,6 @@ import numpy as np
 import urllib.request
 import xml.etree.ElementTree as ET
 
-# Uitgebreide BIST Watchlist (Borsa Istanbul Aandelen)
 WATCHLIST = [
     'GARAN.IS', 'AKBNK.IS', 'EREGL.IS', 'THYAO.IS', 
     'TUPRS.IS', 'KCHOL.IS', 'SAHOL.IS', 'BIMAS.IS',
@@ -13,53 +12,27 @@ WATCHLIST = [
 
 def analyze_macro_and_global_news():
     print("=" * 75)
-    print(" 🧠 BIST QUANT-SYSTEEM: ULTIEME MACRO, NIEUWS & ANALISTEN ANALYSE")
+    print(" 🧠 BIST QUANT-SYSTEEM: ANALYSE")
     print("=" * 75)
     
-    # 1. USD/TRY Devaluatie-tracking
     usd_try = 49.50
     try:
         df = yf.Ticker("USDTRY=X").history(period="5d")
         if not df.empty and 'Close' in df.columns:
             usd_try = float(df['Close'].iloc[-1])
-    except Exception as e:
-        print(f"Waarschuwing USD/TRY ophalen: {e}")
+    except Exception:
+        pass
         
-    # 2. BIST 100 Benchmark Rendement (3 maanden)
     mkt_ret = 0.0
     try:
         df = yf.Ticker("XU100.IS").history(period="3mo")
         if not df.empty and len(df) > 1 and 'Close' in df.columns:
             mkt_ret = round(float((df['Close'].iloc[-1] - df['Close'].iloc[0]) / df['Close'].iloc[0]) * 100, 2)
-    except Exception as e:
-        print(f"Waarschuwing BIST 100 ophalen: {e}")
-
-    # 3. Live RSS / Financiële Nieuws & Schandalen Filter
-    news_warnings = []
-    try:
-        url = "https://news.google.com/rss/search?q=Borsa+Istanbul+stock+market&hl=en-US&gl=US&ceid=US:en"
-        req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0'})
-        with urllib.request.urlopen(req, timeout=5) as response:
-            xml_data = response.read()
-            root = ET.fromstring(xml_data)
-            for item in root.findall('.//item')[:5]:
-                title = item.find('text') or item.find('title')
-                if title is not None and title.text:
-                    t_lower = title.text.lower()
-                    if any(w in t_lower for w in ['investigation', 'spk', 'crash', 'scandal', 'fall', 'crisis', 'probe']):
-                        news_warnings.append(title.text)
     except Exception:
         pass
 
     dev_risk = usd_try > 48.0
     print(f" USD/TRY Koers: {usd_try:.2f} | BIST 100 (3m rendement): {mkt_ret}%")
-    if news_warnings:
-        print(f" Let op (Nieuws-filter): {len(news_warnings)} marktwaarschuwing(en) gedetecteerd!")
-        for w_item in news_warnings[:2]:
-            print(f"     - {w_item}")
-    else:
-        print(" Nieuws-filter: Geen directe macro-schandalen of onderzoeken gedetecteerd.")
-        
     return dev_risk, mkt_ret
 
 def analyze_stock(ticker, dev_risk, mkt_ret):
@@ -67,18 +40,16 @@ def analyze_stock(ticker, dev_risk, mkt_ret):
         stock = yf.Ticker(ticker)
         hist = stock.history(period="1mo")
         if hist is None or hist.empty or len(hist) < 5: 
-            return None, "Onvoldoende historische data beschikbaar"
+            return None, "Onvoldoende data"
         
         info = stock.info or {}
         name = str(info.get('longName') or ticker)
         price = float(hist['Close'].iloc[-1])
         
-        # 4. Analistenconsensus & Koersdoelen integratie vanuit Ticker Info
         target_mean = info.get('targetMeanPrice')
         analyst_recommendation = str(info.get('recommendationKey', 'hold')).upper()
         num_analysts = info.get('numberOfAnalystOpinions', 0)
         
-        # Daytrading Pivot Niveaus (R1, S1 op basis van gisteren)
         if len(hist) >= 2:
             h, l, c = float(hist['High'].iloc[-2]), float(hist['Low'].iloc[-2]), float(hist['Close'].iloc[-2])
         else:
@@ -88,7 +59,6 @@ def analyze_stock(ticker, dev_risk, mkt_ret):
         r1 = round((2 * pivot) - l, 2)
         s1 = round((2 * pivot) - h, 2)
         
-        # Technische Indicatoren (SMA & RSI)
         sma = float(hist['Close'].rolling(min(10, len(hist))).mean().iloc[-1])
         delta = hist['Close'].diff()
         gain = delta.clip(lower=0).rolling(14).mean()
@@ -101,7 +71,6 @@ def analyze_stock(ticker, dev_risk, mkt_ret):
             if not rsi_series.empty:
                 rsi = float(rsi_series.iloc[-1])
         
-        # 5. Geavanceerd Puntsysteem inclusief Analisten-advies
         points = 4.0
         reasons = []
         
@@ -110,4 +79,70 @@ def analyze_stock(ticker, dev_risk, mkt_ret):
             reasons.append("Koers boven korte SMA (+1.5p)")
         if 30 <= rsi <= 80: 
             points += 1.5
-            reasons.
+            reasons.append(f"Gezonde RSI ({rsi:.1f}) (+1.5p)")
+            
+        if ticker in ['THYAO.IS', 'EREGL.IS', 'SISE.IS', 'TUPRS.IS'] and dev_risk:
+            points += 2.0
+            reasons.append("Devaluatie-buffer actief (+2.0p)")
+            
+        if analyst_recommendation in ['BUY', 'STRONG_BUY']:
+            points += 1.0
+            reasons.append(f"Analisten consensus: {analyst_recommendation} (+1.0p)")
+        elif analyst_recommendation in ['UNDERPERFORM', 'SELL']:
+            points -= 1.0
+            reasons.append(f"Analisten consensus: {analyst_recommendation} (-1.0p)")
+            
+        score = round(min(10.0, max(1.0, points)), 1)
+        
+        if len(hist) >= 14:
+            atr = float((hist['High'] - hist['Low']).rolling(14).mean().iloc[-1])
+        else:
+            atr = price * 0.03
+        
+        return {
+            "Ticker": ticker, 
+            "Bedrijf": name, 
+            "Prijs": round(price, 2), 
+            "RSI": round(rsi, 1),
+            "Cijfer": score, 
+            "Res1": r1, 
+            "Sup1": s1, 
+            "StopLoss": round(price - atr, 2),
+            "Doel": round(price + (1.5 * atr), 2), 
+            "AnalistenDoel": round(target_mean, 2) if target_mean else "N.B.",
+            "AnalistenAdvies": analyst_recommendation,
+            "AantalAnalisten": num_analysts,
+            "Onderbouwing": reasons
+        }, "OK"
+    except Exception as e:
+        return None, str(e)
+
+def run():
+    dev_risk, mkt_ret = analyze_macro_and_global_news()
+    results = []
+    
+    for t in WATCHLIST:
+        res, msg = analyze_stock(t, dev_risk, mkt_ret)
+        if res: 
+            results.append(res)
+        
+    if results:
+        results = sorted(results, key=lambda x: x['Cijfer'], reverse=True)
+        tot = sum(r['Cijfer'] for r in results)
+        
+        print("\n" + "="*75 + "\n JOUW QUANT RANGSLIJST & NIVEAUS\n" + "="*75)
+        for row in results:
+            w = round((row['Cijfer'] / tot) * 100, 2) if tot > 0 else 0
+            print(f"\n- {row['Bedrijf']} ({row['Ticker']})")
+            print(f"   Cijfer: {row['Cijfer']} / 10 | Weging: {w}%")
+            print(f"   Koers: {row['Prijs']} | RSI: {row['RSI']}")
+            print(f"   Advies: {row['AnalistenAdvies']} (Doel: {row['AnalistenDoel']} | {row['AantalAnalisten']} analisten)")
+            print(f"   R1: {row['Res1']} | S1: {row['Sup1']}")
+            print(f"   Stop-Loss: {row['StopLoss']} | Doel: {row['Doel']}")
+            print(f"   Onderbouwing:")
+            for r in row['Onderbouwing']: 
+                print(f"     - {r}")
+        print("="*75)
+
+if __name__ == "__main__":
+    run()
