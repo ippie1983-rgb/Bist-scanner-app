@@ -174,4 +174,51 @@ if global_warnings:
     for warning in global_warnings[:3]:
         st.warning(f"⚠️ **Geopolitiek signaal:** {warning}")
 else:
-    st.success("🛡️ Geen directe
+    st.success("🛡️ Geen directe extreme geopolitieke schokken of sancties gedetecteerd.")
+
+st.markdown("### 🎯 Geopolitieke & Macro 'Top 3' Thematische Selectie")
+st.markdown("Op basis van het actuele macro-klimaat en de valutastatus onderscheiden de volgende sectoren/aandelen zich momenteel het sterkst:")
+
+col_t1, col_t2, col_t3 = st.columns(3)
+with col_t1:
+    st.info("✈️ **1. THYAO.IS (Luchtvaart / Harde Valuta)**\n\n*Waarom:* Profiteert van wereldwijde omzet in vreemde valuta (USD/EUR), wat dient als natuurlijke buffer bij devaluatierisico's.")
+with col_t2:
+    st.info("🛢️ **2. TUPRS.IS (Energie / Raffinage)**\n\n*Waarom:* Sterke positie in olieraffinage en margebescherming tijdens wereldwijde olieschokken of geopolitieke spanningen.")
+with col_t3:
+    st.info("🏗️ **3. EREGL.IS / KCHOL.IS (Zware Industrie / Conglomeraat)**\n\n*Waarom:* Robuuste balansen en inflatiebestendige activa die fungeren als veilige haven in turbulente markttijden.")
+
+st.markdown("---")
+st.markdown("### 🏆 Live Ranglijst, Officiële Cijfers & Waardering")
+
+if st.button("Start Volledige Quant & Fundamentele Analyse"):
+    with st.spinner("Bezig met ophalen van officiële bedrijfsresultaten, waarderingen (P/E, P/B) en analistenprognoses..."):
+        results = []
+        for t in WATCHLIST:
+            res = analyze_stock(t, dev_risk)
+            if res: 
+                results.append(res)
+            
+        if results:
+            df_res = pd.DataFrame(results)
+            df_res = df_res.sort_values(by="Cijfer", ascending=False).reset_index(drop=True)
+            
+            tot = df_res["Cijfer"].sum()
+            df_res["Weging %"] = df_res["Cijfer"].apply(lambda x: round((x / tot) * 100, 2) if tot > 0 else 0)
+            
+            st.success("Analyse succesvol voltooid!")
+            
+            st.dataframe(df_res[['Bedrijf', 'Ticker', 'Cijfer', 'Prijs (TRY)', 'P/E (FK)', 'P/B (PD/DD)', 'Winstmarge %', 'Omzetgroei %', 'Koersdoel (₺)', 'Advies', 'Weging %']], use_container_width=True)
+            
+            for index, row in df_res.iterrows():
+                with st.expander(f"{row['Bedrijf']} ({row['Ticker']}) — Systeemcijfer: {row['Cijfer']}/10"):
+                    st.write(f"**Huidige Koers:** ₺{row['Prijs (TRY)']} | **RSI:** {row['RSI']} | **Portefeuille Weging:** {row['Weging %']}%")
+                    st.write(f"**Waardering & Fundamentals:** P/E (Fiyat/Kazanç): {row['P/E (FK)']} | P/B (Piyasa/Değer): {row['P/B (PD/DD)']} | Winstmarge: {row['Winstmarge %']}% | Omzetgroei: {row['Omzetgroei %']}%")
+                    st.write(f"**Analisten Consensus:** {row['Advies']} (Gemiddeld Doelkoers: ₺{row['Koersdoel (₺)']} | Aantal analisten: {row['Analisten']})")
+                    st.write(f"📊 **Toekomst Outlook & Samenvatting:** {row['Toekomst Outlook']}")
+                    st.write(f"**Daytrading Niveaus:** Weerstand R1: ₺{row['Res1']} | Steun S1: ₺{row['Sup1']}")
+                    st.write(f"**Risicobeheer:** Stop-Loss: ₺{row['StopLoss']} | Doel: ₺{row['Doel']}")
+                    st.write(f"**Technische Onderbouwing:** {row['Onderbouwing']}")
+        else:
+            st.warning("Geen resultaten gevonden.")
+else:
+    st.info("Klik op de knop hierboven om de live analyse te starten.")
