@@ -23,7 +23,7 @@ def analyze_macro_and_global_news():
         if not df.empty and 'Close' in df.columns:
             usd_try = float(df['Close'].iloc[-1])
     except Exception as e:
-        print(f"⚠️ Waarschuwing USD/TRY ophalen: {e}")
+        print(f"Waarschuwing USD/TRY ophalen: {e}")
         
     # 2. BIST 100 Benchmark Rendement (3 maanden)
     mkt_ret = 0.0
@@ -32,7 +32,7 @@ def analyze_macro_and_global_news():
         if not df.empty and len(df) > 1 and 'Close' in df.columns:
             mkt_ret = round(float((df['Close'].iloc[-1] - df['Close'].iloc[0]) / df['Close'].iloc[0]) * 100, 2)
     except Exception as e:
-        print(f"⚠️ Waarschuwing BIST 100 ophalen: {e}")
+        print(f"Waarschuwing BIST 100 ophalen: {e}")
 
     # 3. Live RSS / Financiële Nieuws & Schandalen Filter
     news_warnings = []
@@ -52,13 +52,13 @@ def analyze_macro_and_global_news():
         pass
 
     dev_risk = usd_try > 48.0
-    print(f" 💱 USD/TRY Koers: ₺{usd_try:.2f} | BIST 100 (3m rendement): {mkt_ret}%")
+    print(f" USD/TRY Koers: {usd_try:.2f} | BIST 100 (3m rendement): {mkt_ret}%")
     if news_warnings:
-        print(f" 🚨 Let op (Nieuws-filter): {len(news_warnings)} marktwaarschuwing(en) gedetecteerd!")
+        print(f" Let op (Nieuws-filter): {len(news_warnings)} marktwaarschuwing(en) gedetecteerd!")
         for w_item in news_warnings[:2]:
-            print(f"     • {w_item}")
+            print(f"     - {w_item}")
     else:
-        print(" 🛡️ Nieuws-filter: Geen directe macro-schandalen of onderzoeken gedetecteerd.")
+        print(" Nieuws-filter: Geen directe macro-schandalen of onderzoeken gedetecteerd.")
         
     return dev_risk, mkt_ret
 
@@ -75,7 +75,7 @@ def analyze_stock(ticker, dev_risk, mkt_ret):
         
         # 4. Analistenconsensus & Koersdoelen integratie vanuit Ticker Info
         target_mean = info.get('targetMeanPrice')
-        analyst_recommendation = info.get('recommendationKey', 'hold').upper()
+        analyst_recommendation = str(info.get('recommendationKey', 'hold')).upper()
         num_analysts = info.get('numberOfAnalystOpinions', 0)
         
         # Daytrading Pivot Niveaus (R1, S1 op basis van gisteren)
@@ -110,17 +110,4 @@ def analyze_stock(ticker, dev_risk, mkt_ret):
             reasons.append("Koers boven korte SMA (+1.5p)")
         if 30 <= rsi <= 80: 
             points += 1.5
-            reasons.append(f"Gezonde RSI ({rsi:.1f}) (+1.5p)")
-            
-        # Devaluatie-buffer voor export / zware fondsen
-        if ticker in ['THYAO.IS', 'EREGL.IS', 'SISE.IS', 'TUPRS.IS'] and dev_risk:
-            points += 2.0
-            reasons.append("🚨 Devaluatie-buffer actief (+2.0p)")
-            
-        # Analisten waardering bonus/straf
-        if analyst_recommendation in ['BUY', 'STRONG_BUY']:
-            points += 1.0
-            reasons.append(f"📈 Analisten consensus: {analyst_recommendation} (+1.0p)")
-        elif analyst_recommendation in ['UNDERPERFORM', 'SELL']:
-            points -= 1.0
-            reasons.append(f"📉 Analisten consensus: {analyst_recommendation
+            reasons.
