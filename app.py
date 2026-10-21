@@ -89,33 +89,3 @@ def analyze_stock(ticker, dev_risk):
         r1 = round((2 * pivot) - l, 2)
         s1 = round((2 * pivot) - h, 2)
         
-        sma = float(hist['Close'].rolling(min(10, len(hist))).mean().iloc[-1])
-        delta = hist['Close'].diff()
-        gain = delta.clip(lower=0).rolling(14).mean()
-        loss = (-delta.clip(upper=0)).rolling(14).mean()
-        
-        rsi = 50.0
-        if not gain.empty and not loss.empty:
-            rs_val = gain / loss
-            rsi_series = 100 - (100 / (1 + rs_val))
-            if not rsi_series.empty:
-                rsi = float(rsi_series.iloc[-1])
-        
-        points = 4.0
-        reasons = []
-        
-        if price > sma: 
-            points += 1.5
-            reasons.append("Koers boven korte SMA (+1.5p)")
-            
-        if 30 <= rsi <= 80: 
-            points += 1.5
-            reasons.append(f"Gezonde RSI ({rsi:.1f}) (+1.5p)")
-            
-        if ticker in ['THYAO.IS', 'EREGL.IS', 'SISE.IS', 'TUPRS.IS'] and dev_risk:
-            points += 2.0
-            reasons.append("Devaluatie-buffer actief (+2.0p)")
-            
-        if raw_rec in ['BUY', 'STRONG_BUY']:
-            points += 1.0
-            reasons.append(f"Analisten consensus: {analyst_recommendation} (+1.0p)")
