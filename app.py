@@ -93,4 +93,53 @@ def analyze_stock(ticker, dev_risk):
             rs_val = gain / loss
             rsi_series = 100 - (100 / (1 + rs_val))
             if not rsi_series.empty:
-                rsi =
+                rsi = float(rsi_series.iloc[-1])
+        
+        points = 4.0
+        reasons = []
+        
+        if price > sma: 
+            points += 1.5
+            reasons.append("Koers boven korte SMA (+1.5p)")
+            
+        if 30 <= rsi <= 80: 
+            points += 1.5
+            reasons.append(f"Gezonde RSI ({rsi:.1f}) (+1.5p)")
+            
+        if ticker in ['THYAO.IS', 'EREGL.IS', 'SISE.IS', 'TUPRS.IS'] and dev_risk:
+            points += 2.0
+            reasons.append("Devaluatie-buffer actief (+2.0p)")
+            
+        if raw_rec in ['BUY', 'STRONG_BUY']:
+            points += 1.0
+            reasons.append(f"Analisten consensus: {analyst_recommendation} (+1.0p)")
+        elif raw_rec in ['UNDERPERFORM', 'SELL']:
+            points -= 1.0
+            reasons.append(f"Analisten consensus: {analyst_recommendation} (-1.0p)")
+            
+        score = round(min(10.0, max(1.0, points)), 1)
+        
+        if len(hist) >= 14:
+            atr = float((hist['High'] - hist['Low']).rolling(14).mean().iloc[-1])
+        else:
+            atr = price * 0.03
+        
+        toekomst_outlook = f"Winstmarge bedraagt {profit_margin_pct}%. Omzetgroei j-o-j is {revenue_growth_pct}%. Koersdoel analisten: ₺{target_mean if target_mean else 'N.B.'}."
+
+        stock_data = {
+            "Ticker": ticker, 
+            "Bedrijf": name, 
+            "Prijs (TRY)": round(price, 2), 
+            "RSI": round(rsi, 1),
+            "Cijfer": score, 
+            "Winstmarge %": profit_margin_pct,
+            "Omzetgroei %": revenue_growth_pct,
+            "Koersdoel (₺)": round(target_mean, 2) if target_mean else 0.0,
+            "Advies": analyst_recommendation,
+            "Analisten": num_analysts,
+            "Res1": r1, 
+            "Sup1": s1, 
+            "StopLoss": round(price - atr, 2),
+            "Doel": round(price + (1.5 * atr), 2), 
+            "Toekomst Outlook": toekomst_outlook,
+            "Onderbouwing": ", ".join(reasons)
