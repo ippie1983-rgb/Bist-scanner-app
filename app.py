@@ -5,8 +5,7 @@ import numpy as np
 import urllib.request
 import xml.etree.ElementTree as ET
 
-# Pagina configuratie
-st.set_page_config(page_title="BIST Quant Trading Bot & Macro Suite", layout="wide")
+st.set_page_config(page_title="BIST Quant Trading Bot", layout="wide")
 
 WATCHLIST = [
     'GARAN.IS', 'AKBNK.IS', 'EREGL.IS', 'THYAO.IS', 
@@ -102,8 +101,7 @@ def analyze_stock(ticker, dev_risk):
         if price > sma: 
             points += 1.5
             reasons.append("Koers boven korte SMA (+1.5p)")
-        
-        # Volledig op één regel gezet om syntaxfouten te voorkomen
+            
         if 30 <= rsi <= 80: 
             points += 1.5
             reasons.append(f"Gezonde RSI ({rsi:.1f}) (+1.5p)")
@@ -126,9 +124,43 @@ def analyze_stock(ticker, dev_risk):
         else:
             atr = price * 0.03
         
-        return {
+        # Schone dictionary zonder gekke regeleinden of foute accolades
+        stock_data = {
             "Ticker": ticker, 
             "Bedrijf": name, 
             "Prijs (TRY)": round(price, 2), 
             "RSI": round(rsi, 1),
-            "Cijfer":
+            "Cijfer": score, 
+            "Res1": r1, 
+            "Sup1": s1, 
+            "StopLoss": round(price - atr, 2),
+            "Doel": round(price + (1.5 * atr), 2), 
+            "AnalistenDoel": round(target_mean, 2) if target_mean else 0.0,
+            "Advies": analyst_recommendation,
+            "Analisten": num_analysts,
+            "Onderbouwing": ", ".join(reasons)
+        }
+        return stock_data
+
+    except Exception:
+        return None
+
+st.title("🧠 BIST Quant Trading Bot & Geopolitieke Suite")
+st.markdown("---")
+
+dev_risk, mkt_ret, usd_try, global_warnings = analyze_macro_and_global_news()
+
+col1, col2 = st.columns(2)
+with col1:
+    st.metric(label="💱 USD/TRY Koers", value=f"₺{usd_try:.2f}", delta="Devaluatie-risico actief" if dev_risk else "Stabiel")
+with col2:
+    st.metric(label="📈 BIST 100 (3m Rendement)", value=f"{mkt_ret}%")
+
+st.markdown("### 🌍 Geopolitieke Risico's & Wereldnieuws Scanner")
+if global_warnings:
+    for warning in global_warnings[:3]:
+        st.warning(f"⚠️ **Wereldwijd/Geopolitiek signaal:** {warning}")
+else:
+    st.success("🛡️ Geen directe extreme geopolitieke schokken of sancties gedetecteerd in de live feeds.")
+
+st.
