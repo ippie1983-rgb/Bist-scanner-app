@@ -5,7 +5,7 @@ import numpy as np
 import urllib.request
 import xml.etree.ElementTree as ET
 
-st.set_page_config(page_title="BIST Quant Trading Bot", layout="wide")
+st.set_page_config(page_title="BIST Quant & Fundamentele Analyse", layout="wide")
 
 WATCHLIST = [
     'GARAN.IS', 'AKBNK.IS', 'EREGL.IS', 'THYAO.IS', 
@@ -61,13 +61,28 @@ def analyze_stock(ticker, dev_risk):
         name = str(info.get('longName') or ticker)
         price = float(hist['Close'].iloc[-1])
         
+        # Officiële fundamentele data & kwartaal/winst verwachtingen
         target_mean = info.get('targetMeanPrice')
         raw_rec = str(info.get('recommendationKey', 'hold')).upper()
         
-        # Volledig op één regel om afkapping te voorkomen
-        advies_map = {'BUY': 'KOPEN', 'STRONG_BUY': 'STERK KOPEN', 'HOLD': 'HOUDEN', 'UNDERPERFORM': 'ONDERPRESTATIE', 'SELL': 'VERKOPEN'}
+        advies_map = {
+            'BUY': 'KOPEN', 
+            'STRONG_BUY': 'STERK KOPEN', 
+            'HOLD': 'HOUDEN', 
+            'UNDERPERFORM': 'ONDERPRESTATIE', 
+            'SELL': 'VERKOPEN'
+        }
         analyst_recommendation = advies_map.get(raw_rec, 'HOUDEN')
         num_analysts = info.get('numberOfAnalystOpinions', 0)
+        
+        # Officiële marges en financiële ratio's uit bedrijfsdata
+        profit_margin = info.get('profitMargins', 0.0)
+        profit_margin_pct = round(profit_margin * 100, 2) if profit_margin else 0.0
+        
+        revenue_growth = info.get('revenueGrowth', 0.0)
+        revenue_growth_pct = round(revenue_growth * 100, 2) if revenue_growth else 0.0
+        
+        pe_ratio = info.get('trailingPE', 0.0)
         
         if len(hist) >= 2:
             h, l, c = float(hist['High'].iloc[-2]), float(hist['Low'].iloc[-2]), float(hist['Close'].iloc[-2])
@@ -119,73 +134,20 @@ def analyze_stock(ticker, dev_risk):
         else:
             atr = price * 0.03
         
+        # Objectieve toekomstsamenvatting op basis van officiële cijfers
+        toekomst_outlook = f"Winstmarge bedraagt {profit_margin_pct}%. Omzetgroei j-o-j is {revenue_growth_pct}%. Koersdoel analisten: ₺{target_mean if target_mean else 'N.B.'}."
+
         stock_data = {
             "Ticker": ticker, 
             "Bedrijf": name, 
             "Prijs (TRY)": round(price, 2), 
             "RSI": round(rsi, 1),
             "Cijfer": score, 
-            "Res1": r1, 
-            "Sup1": s1, 
-            "StopLoss": round(price - atr, 2),
-            "Doel": round(price + (1.5 * atr), 2), 
-            "AnalistenDoel": round(target_mean, 2) if target_mean else 0.0,
+            "Winstmarge %": profit_margin_pct,
+            "Omzetgroei %": revenue_growth_pct,
+            "Koersdoel (₺)": round(target_mean, 2) if target_mean else 0.0,
             "Advies": analyst_recommendation,
             "Analisten": num_analysts,
-            "Onderbouwing": ", ".join(reasons)
-        }
-        return stock_data
-
-    except Exception:
-        return None
-
-st.title("🧠 BIST Quant Trading Bot & Geopolitieke Suite")
-st.markdown("---")
-
-dev_risk, mkt_ret, usd_try, global_warnings = analyze_macro_and_global_news()
-
-col1, col2 = st.columns(2)
-with col1:
-    st.metric(label="💱 USD/TRY Koers", value=f"₺{usd_try:.2f}", delta="Devaluatie-risico actief" if dev_risk else "Stabiel")
-with col2:
-    st.metric(label="📈 BIST 100 (3m Rendement)", value=f"{mkt_ret}%")
-
-st.markdown("### 🌍 Geopolitieke Risico's & Wereldnieuws Scanner (Nederlands)")
-if global_warnings:
-    for warning in global_warnings[:3]:
-        st.warning(f"⚠️ **Geopolitiek signaal:** {warning}")
-else:
-    st.success("🛡️ Geen directe extreme geopolitieke schokken of sancties gedetecteerd in de Nederlandse feeds.")
-
-st.markdown("---")
-st.markdown("### 🏆 Live Ranglijst, Analisten & Niveaus")
-
-if st.button("Start Volledige Quant Analyse"):
-    with st.spinner("Bezig met ophalen van koersen, analistenadviezen en wereldnieuws..."):
-        results = []
-        for t in WATCHLIST:
-            res = analyze_stock(t, dev_risk)
-            if res: 
-                results.append(res)
-            
-        if results:
-            df_res = pd.DataFrame(results)
-            df_res = df_res.sort_values(by="Cijfer", ascending=False).reset_index(drop=True)
-            
-            tot = df_res["Cijfer"].sum()
-            df_res["Weging %"] = df_res["Cijfer"].apply(lambda x: round((x / tot) * 100, 2) if tot > 0 else 0)
-            
-            st.success("Analyse succesvol voltooid!")
-            st.dataframe(df_res, use_container_width=True)
-            
-            for index, row in df_res.iterrows():
-                with st.expander(f"{row['Bedrijf']} ({row['Ticker']}) — Systeemcijfer: {row['Cijfer']}/10"):
-                    st.write(f"**Koers:** ₺{row['Prijs (TRY)']} | **RSI:** {row['RSI']} | **Portefeuille Weging:** {row['Weging %']}%")
-                    st.write(f"**Analisten Consensus:** {row['Advies']} (Doelkoers: ₺{row['AnalistenDoel']} | Gebaseerd op {row['Analisten']} analisten)")
-                    st.write(f"**Daytrading Niveaus:** Weerstand R1: ₺{row['Res1']} | Steun S1: ₺{row['Sup1']}")
-                    st.write(f"**Risicobeheer:** Stop-Loss: ₺{row['StopLoss']} | Doel: ₺{row['Doel']}")
-                    st.write(f"**Onderbouwing:** {row['Onderbouwing']}")
-        else:
-            st.warning("Geen resultaten gevonden.")
-else:
-    st.info("Klik op de knop hierboven om de live scan te starten.")
+            "Res1": r1, 
+            "Sup1": s1, 
+            "StopLoss
