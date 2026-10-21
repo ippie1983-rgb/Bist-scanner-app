@@ -1,8 +1,12 @@
+import streamlit as st
 import yfinance as yf
 import pandas as pd
 import numpy as np
 import urllib.request
 import xml.etree.ElementTree as ET
+
+# Pagina configuratie
+st.set_page_config(page_title="BIST Quant Trading Bot", layout="wide")
 
 WATCHLIST = [
     'GARAN.IS', 'AKBNK.IS', 'EREGL.IS', 'THYAO.IS', 
@@ -10,11 +14,8 @@ WATCHLIST = [
     'YKBNK.IS', 'ISCTR.IS', 'ASELS.IS', 'SISE.IS', 'MGROS.IS'
 ]
 
+@st.cache_data(ttl=300)
 def analyze_macro_and_global_news():
-    print("=" * 75)
-    print(" 🧠 BIST QUANT-SYSTEEM: ANALYSE")
-    print("=" * 75)
-    
     usd_try = 49.50
     try:
         df = yf.Ticker("USDTRY=X").history(period="5d")
@@ -32,15 +33,14 @@ def analyze_macro_and_global_news():
         pass
 
     dev_risk = usd_try > 48.0
-    print(f" USD/TRY Koers: {usd_try:.2f} | BIST 100 (3m rendement): {mkt_ret}%")
-    return dev_risk, mkt_ret
+    return dev_risk, mkt_ret, usd_try
 
-def analyze_stock(ticker, dev_risk, mkt_ret):
+def analyze_stock(ticker, dev_risk):
     try:
         stock = yf.Ticker(ticker)
         hist = stock.history(period="1mo")
         if hist is None or hist.empty or len(hist) < 5: 
-            return None, "Onvoldoende data"
+            return None
         
         info = stock.info or {}
         name = str(info.get('longName') or ticker)
@@ -90,7 +90,7 @@ def analyze_stock(ticker, dev_risk, mkt_ret):
             reasons.append(f"Analisten consensus: {analyst_recommendation} (+1.0p)")
         elif analyst_recommendation in ['UNDERPERFORM', 'SELL']:
             points -= 1.0
-            reasons.append(f"Analisten consensus: {analyst_recommendation} (-1.0p)")
+            reasons.append(f"Analisten consensus: {analyst_recommendation} (+1.0p)")
             
         score = round(min(10.0, max(1.0, points)), 1)
         
@@ -102,47 +102,61 @@ def analyze_stock(ticker, dev_risk, mkt_ret):
         return {
             "Ticker": ticker, 
             "Bedrijf": name, 
-            "Prijs": round(price, 2), 
+            "Prijs (TRY)": round(price, 2), 
             "RSI": round(rsi, 1),
             "Cijfer": score, 
             "Res1": r1, 
             "Sup1": s1, 
             "StopLoss": round(price - atr, 2),
             "Doel": round(price + (1.5 * atr), 2), 
-            "AnalistenDoel": round(target_mean, 2) if target_mean else "N.B.",
-            "AnalistenAdvies": analyst_recommendation,
-            "AantalAnalisten": num_analysts,
-            "Onderbouwing": reasons
-        }, "OK"
-    except Exception as e:
-        return None, str(e)
+            "AnalistenDoel": round(target_mean, 2) if target_mean else 0.0,
+            "Advies": analyst_recommendation,
+            "Analisten": num_analysts,
+            "Onderbouwing": ", ".join(reasons)
+        }
+    except Exception:
+        return None
 
-def run():
-    dev_risk, mkt_ret = analyze_macro_and_global_news()
-    results = []
-    
-    for t in WATCHLIST:
-        res, msg = analyze_stock(t, dev_risk, mkt_ret)
-        if res: 
-            results.append(res)
-        
-    if results:
-        results = sorted(results, key=lambda x: x['Cijfer'], reverse=True)
-        tot = sum(r['Cijfer'] for r in results)
-        
-        print("\n" + "="*75 + "\n JOUW QUANT RANGSLIJST & NIVEAUS\n" + "="*75)
-        for row in results:
-            w = round((row['Cijfer'] / tot) * 100, 2) if tot > 0 else 0
-            print(f"\n- {row['Bedrijf']} ({row['Ticker']})")
-            print(f"   Cijfer: {row['Cijfer']} / 10 | Weging: {w}%")
-            print(f"   Koers: {row['Prijs']} | RSI: {row['RSI']}")
-            print(f"   Advies: {row['AnalistenAdvies']} (Doel: {row['AnalistenDoel']} | {row['AantalAnalisten']} analisten)")
-            print(f"   R1: {row['Res1']} | S1: {row['Sup1']}")
-            print(f"   Stop-Loss: {row['StopLoss']} | Doel: {row['Doel']}")
-            print(f"   Onderbouwing:")
-            for r in row['Onderbouwing']: 
-                print(f"     - {r}")
-        print("="*75)
+# Streamlit Interface
+st.title("🧠 BIST Quant Trading Bot & Dashboard")
+st.markdown("---")
 
-if __name__ == "__main__":
-    run()
+dev_risk, mkt_ret, usd_try = analyze_macro_and_global_news()
+
+col1, col2 = st.columns(2)
+with col1:
+    st.metric(label="💱 USD/TRY Koers", value=f"₺{usd_try:.2f}", delta="Risico actief" if dev_risk else "Stabiel")
+with col2:
+    st.metric(label="📈 BIST 100 (3m Rendement)", value=f"{mkt_ret}%")
+
+st.markdown("### 🏆 Live Ranglijst & Niveaus")
+
+if st.button("Start Analyse Scan"):
+    with st.spinner("Gegevens ophalen van Yahoo Finance... Even geduld..."):
+        results = []
+        for t in WATCHLIST:
+            res = analyze_stock(t, dev_risk)
+            if res: 
+                results.append(res)
+            
+        if results:
+            df_res = pd.DataFrame(results)
+            df_res = df_res.sort_values(by="Cijfer", ascending=False).reset_index(drop=True)
+            
+            tot = df_res["Cijfer"].sum()
+            df_res["Weging %"] = df_res["Cijfer"].apply(lambda x: round((x / tot) * 100, 2) if tot > 0 else 0)
+            
+            st.success("Analyse voltooid!")
+            st.dataframe(df_res, use_container_width=True)
+            
+            for index, row in df_res.iterrows():
+                with st.expander(f"{row['Bedrijf']} ({row['Ticker']}) - Cijfer: {row['Cijfer']}/10"):
+                    st.write(f"**Huidige Koers:** ₺{row['Prijs (TRY)']} | **RSI:** {row['RSI']}")
+                    st.write(f"**Analisten Advies:** {row['Advies']} (Doel: ₺{row['AnalistenDoel']} | {row['Analisten']} analisten)")
+                    st.write(f"**Daytrading Niveaus:** Weerstand R1: ₺{row['Res1']} | Steun S1: ₺{row['Sup1']}")
+                    st.write(f"**Risicobeheer:** Stop-Loss: ₺{row['StopLoss']} | Doel: ₺{row['Doel']}")
+                    st.write(f"**Onderbouwing:** {row['Onderbouwing']}")
+        else:
+                st.warning("Geen resultaten gevonden.")
+else:
+    st.info("Klik op de knop hierboven om de scan te starten.")
