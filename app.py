@@ -65,9 +65,19 @@ def analyze_stock(ticker, dev_risk):
         name = str(info.get('longName') or ticker)
         price = float(hist['Close'].iloc[-1])
         
-        # Analisten & Consensus
+        # Analisten & Consensus vertalen naar Nederlands
         target_mean = info.get('targetMeanPrice')
-        analyst_recommendation = str(info.get('recommendationKey', 'hold')).upper()
+        raw_rec = str(info.get('recommendationKey', 'hold')).upper()
+        
+        # Vertaaltabel voor analistenadviezen
+        advies_map = {
+            'BUY': 'KOPEN',
+            'STRONG_BUY': 'STERK KOPEN',
+            'HOLD': 'HOUDEN',
+            'UNDERPERFORM': 'ONDERPRESTATIE',
+            'SELL': 'VERKOPEN'
+        }
+        analyst_recommendation = advies_map.get(raw_rec, 'HOUDEN')
         num_analysts = info.get('numberOfAnalystOpinions', 0)
         
         # Daytrading Pivot Niveaus
@@ -101,94 +111,4 @@ def analyze_stock(ticker, dev_risk):
             reasons.append("Koers boven korte SMA (+1.5p)")
         if 30 <= rsi <= 80: 
             points += 1.5
-            reasons.append(f"Gezonde RSI ({rsi:.1f}) (+1.5p)")
-            
-        if ticker in ['THYAO.IS', 'EREGL.IS', 'SISE.IS', 'TUPRS.IS'] and dev_risk:
-            points += 2.0
-            reasons.append("Devaluatie-buffer actief (+2.0p)")
-            
-        if analyst_recommendation in ['BUY', 'STRONG_BUY']:
-            points += 1.0
-            reasons.append(f"Analisten consensus: {analyst_recommendation} (+1.0p)")
-        elif analyst_recommendation in ['UNDERPERFORM', 'SELL']:
-            points -= 1.0
-            reasons.append(f"Analisten consensus: {analyst_recommendation} (-1.0p)")
-            
-        score = round(min(10.0, max(1.0, points)), 1)
-        
-        if len(hist) >= 14:
-            atr = float((hist['High'] - hist['Low']).rolling(14).mean().iloc[-1])
-        else:
-            atr = price * 0.03
-        
-        return {
-            "Ticker": ticker, 
-            "Bedrijf": name, 
-            "Prijs (TRY)": round(price, 2), 
-            "RSI": round(rsi, 1),
-            "Cijfer": score, 
-            "Res1": r1, 
-            "Sup1": s1, 
-            "StopLoss": round(price - atr, 2),
-            "Doel": round(price + (1.5 * atr), 2), 
-            "AnalistenDoel": round(target_mean, 2) if target_mean else 0.0,
-            "Advies": analyst_recommendation,
-            "Analisten": num_analysts,
-            "Onderbouwing": ", ".join(reasons)
-        }
-    except Exception:
-        return None
-
-# Streamlit Dashboard Layout
-st.title("🧠 BIST Quant Trading Bot & Geopolitieke Suite")
-st.markdown("---")
-
-dev_risk, mkt_ret, usd_try, global_warnings = analyze_macro_and_global_news()
-
-# Macro Metrics
-col1, col2 = st.columns(2)
-with col1:
-    st.metric(label="💱 USD/TRY Koers", value=f"₺{usd_try:.2f}", delta="Devaluatie-risico actief" if dev_risk else "Stabiel")
-with col2:
-    st.metric(label="📈 BIST 100 (3m Rendement)", value=f"{mkt_ret}%")
-
-# Geopolitiek & Wereldnieuws sectie
-st.markdown("### 🌍 Geopolitieke Risico's & Wereldnieuws Scanner")
-if global_warnings:
-    for warning in global_warnings[:3]:
-        st.warning(f"⚠️ **Wereldwijd/Geopolitiek signaal:** {warning}")
-else:
-    st.success("🛡️ Geen directe extreme geopolitieke schokken of sancties gedetecteerd in de live feeds.")
-
-st.markdown("---")
-st.markdown("### 🏆 Live Ranglijst, Analisten & Niveaus")
-
-if st.button("Start Volledige Quant Analyse"):
-    with st.spinner("Bezig met ophalen van koersen, analistenadviezen en wereldnieuws..."):
-        results = []
-        for t in WATCHLIST:
-            res = analyze_stock(t, dev_risk)
-            if res: 
-                results.append(res)
-            
-        if results:
-            df_res = pd.DataFrame(results)
-            df_res = df_res.sort_values(by="Cijfer", ascending=False).reset_index(drop=True)
-            
-            tot = df_res["Cijfer"].sum()
-            df_res["Weging %"] = df_res["Cijfer"].apply(lambda x: round((x / tot) * 100, 2) if tot > 0 else 0)
-            
-            st.success("Analyse succesvol voltooid!")
-            st.dataframe(df_res, use_container_width=True)
-            
-            for index, row in df_res.iterrows():
-                with st.expander(f"{row['Bedrijf']} ({row['Ticker']}) — Systeemcijfer: {row['Cijfer']}/10"):
-                    st.write(f"**Koers:** ₺{row['Prijs (TRY)']} | **RSI:** {row['RSI']} | **Portefeuille Weging:** {row['Weging %']}%")
-                    st.write(f"**Analisten Consensus:** {row['Advies']} (Doelkoers: ₺{row['AnalistenDoel']} | Gebaseerd op {row['Analisten']} analisten)")
-                    st.write(f"**Daytrading Niveaus:** Weerstand R1: ₺{row['Res1']} | Steun S1: ₺{row['Sup1']}")
-                    st.write(f"**Risicobeheer:** Stop-Loss: ₺{row['StopLoss']} | Doel: ₺{row['Doel']}")
-                    st.write(f"**Onderbouwing:** {row['Onderbouwing']}")
-        else:
-            st.warning("Geen resultaten gevonden.")
-else:
-    st.info("Klik op de knop hierboven om de live scan te starten.")
+            reasons.append(f"Gezonde RSI ({rsi
