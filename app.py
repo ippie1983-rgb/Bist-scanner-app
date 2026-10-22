@@ -11,7 +11,7 @@ import xml.etree.ElementTree as ET
 # ==============================================================================
 # CONFIGURATIE & SECTOR MAPPING
 # ==============================================================================
-st.set_page_config(page_title="BIST Scanner 3.10 — Ultimate Hedgefund Edition", layout="wide")
+st.set_page_config(page_title="BIST Scanner 3.11 — Ultimate Hedgefund Edition", layout="wide")
 
 WATCHLIST = [
     "GARAN.IS", "AKBNK.IS", "YKBNK.IS", "ISCTR.IS", "HALKB.IS", "VAKBN.IS",
@@ -357,6 +357,7 @@ def analyze_stock(ticker, macro_info, api_key=None, use_ai_agent=True):
     except: pass
 
     company = str(info.get("longName") or info.get("shortName") or ticker)
+    sector = SECTOR_MAP.get(ticker, "Overig")
     pe = safe_float(info.get("trailingPE"))
     pb = safe_float(info.get("priceToBook"))
     margin = safe_float(info.get("profitMargins"))
@@ -364,7 +365,6 @@ def analyze_stock(ticker, macro_info, api_key=None, use_ai_agent=True):
     recommendation = str(info.get("recommendationKey") or "n.b.").upper()
     q_metrics = get_quarterly_metrics(ticker)
 
-    # Realistische herberekende scores (geen geforceerde 5.5 meer)
     tech_points = 5.0
     if sma20 and price > sma20: tech_points += 2.0
     if sma50 and price > sma50: tech_points += 1.5
@@ -392,7 +392,7 @@ def analyze_stock(ticker, macro_info, api_key=None, use_ai_agent=True):
     ai_sentiment = str(ai_report.get("sentiment_label", "Neutraal")) if ai_report else "Neutraal"
 
     return {
-        "Ticker": ticker, "Bedrijf": company, "Koers": round(price, 2),
+        "Ticker": ticker, "Bedrijf": company, "Sector": sector, "Koers": round(price, 2),
         "Totaal_Cijfer": total_score, "Tech_Cijfer": tech_score, "Fund_Cijfer": fund_score,
         "AI_Sentiment": ai_sentiment, "AI_Correctie": round(news_adj, 1),
         "AI_Rapport": ai_report, "Audit_Rapport": audit_report,
@@ -411,8 +411,8 @@ def analyze_stock(ticker, macro_info, api_key=None, use_ai_agent=True):
 # ==============================================================================
 # STREAMLIT DASHBOARD UI
 # ==============================================================================
-st.title("📊 BIST Scanner 3.10 — Ultimate Hedgefund Edition")
-st.markdown("Professioneel platform met **Backtest Tijdmachine**, **Portefeuille Optimalisatie**, **Gerichte AI-Nieuwsrobot**, en **Steun & Weerstand**.")
+st.title("📊 BIST Scanner 3.11 — Ultimate Hedgefund Edition")
+st.markdown("Professioneel platform met **Sector-Concentratielimiet**, **Backtest Tijdmachine**, **Portefeuille Optimalisatie**, en **Gerichte AI-Nieuwsrobot**.")
 
 with st.sidebar:
     st.header("⚙️ Instellingen & Filters")
@@ -425,8 +425,9 @@ with st.sidebar:
     use_ai_agent = st.toggle("Activeer AI-Agent & Fact-Checker", value=True)
 
     st.divider()
+    max_per_sector = st.slider("Max. aantal aandelen per sector (Concentratielimiet):", 1, 3, 1, 1)
     min_adtv = st.number_input("Min. Dagomzet (Milyon TRY / ADTV):", min_value=0.0, max_value=500.0, value=10.0, step=5.0)
-    selected_tickers = st.multiselect("Selecteer BIST-aandelen:", options=WATCHLIST, default=WATCHLIST[:15])
+    selected_tickers = st.multiselect("Selecteer BIST-aandelen:", options=WATCHLIST, default=WATCHLIST)
     min_score = st.slider("Minimale Totaalscore:", 1.0, 10.0, 5.0, 0.5)
     
     if st.button("🔄 Cache wissen & Verversen"):
@@ -446,20 +447,30 @@ st.divider()
 
 results = []
 if selected_tickers:
-    progress_bar = st.progress(0, text="Aandelen scannen en analyseren...")
+    progress_bar = st.progress(0, text="Aandelen scannen en sector-limieten toepassen...")
+    raw_results = []
     for idx, t in enumerate(selected_tickers):
         res = analyze_stock(t, macro, api_key=gemini_api_key, use_ai_agent=use_ai_agent)
         if res and res["Totaal_Cijfer"] >= min_score:
             adtv = res.get("ADTV (M TRY)")
             if adtv is None or adtv >= min_adtv:
-                results.append(res)
+                raw_results.append(res)
         progress_bar.progress((idx + 1) / len(selected_tickers), text=f"Geanalyseerd: {t}")
     progress_bar.empty()
 
+    # Sector Concentratielimiet Toepassen
+    raw_results = sorted(raw_results, key=lambda x: x["Totaal_Cijfer"], reverse=True)
+    sector_counts = {}
+    for r in raw_results:
+        sec = r["Sector"]
+        current_count = sector_counts.get(sec, 0)
+        if current_count < max_per_sector:
+            results.append(r)
+            sector_counts[sec] = current_count + 1
+
 if not results:
-    st.warning("Geen aandelen gevonden die voldoen aan de score- en liquiditeitscriteria.")
+    st.warning("Geen aandelen gevonden die voldoen aan de score-, liquiditeits- en sector-criteria.")
 else:
-    results = sorted(results, key=lambda x: x["Totaal_Cijfer"], reverse=True)
     df_overview = pd.DataFrame(results)
 
     tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
@@ -472,13 +483,13 @@ else:
     ])
 
     with tab1:
-        st.subheader("Portefeuille Ranglijst & Scores")
-        display_cols = ["Ticker", "Bedrijf", "Koers", "Totaal_Cijfer", "Tech_Cijfer", "Fund_Cijfer", "AI_Sentiment", "ADTV (M TRY)", "RSI", "Trend"]
+        st.subheader("Portefeuille Ranglijst & Scores (Spreiding gewaarborgd)")
+        display_cols = ["Ticker", "Bedrijf", "Sector", "Koers", "Totaal_Cijfer", "Tech_Cijfer", "Fund_Cijfer", "AI_Sentiment", "ADTV (M TRY)"]
         st.dataframe(df_overview[display_cols], use_container_width=True, hide_index=True)
 
     with tab2:
         st.subheader("Steun- en Weerstandsniveaus (Pivot & S1-S3 / R1-R3)")
-        sr_cols = ["Ticker", "Koers", "Trend", "S3", "S2", "S1", "Pivot", "R1", "R2", "R3", "Stop_Loss", "Doel_ATR"]
+        sr_cols = ["Ticker", "Bedrijf", "Sector", "Koers", "Trend", "S1", "Pivot", "R1", "Stop_Loss", "Doel_ATR"]
         st.dataframe(df_overview[sr_cols], use_container_width=True, hide_index=True)
 
     with tab3:
@@ -493,23 +504,23 @@ else:
                         start_p = h_df["Close"].iloc[0]
                         end_p = h_df["Close"].iloc[-1]
                         ret = ((end_p / start_p) - 1) * 100
-                        perf_list.append({"Ticker": r["Ticker"], "Bedrijf": r["Bedrijf"], "Rendement 6M (%)": round(ret, 2)})
+                        perf_list.append({"Ticker": r["Ticker"], "Bedrijf": r["Bedrijf"], "Sector": r["Sector"], "Rendement 6M (%)": round(ret, 2)})
                 if perf_list:
                     st.dataframe(pd.DataFrame(perf_list), use_container_width=True, hide_index=True)
-                    st.success("Backtest voltooid! Historische simulatie toont de kracht van de geselecteerde selectie.")
+                    st.success("Backtest voltooid!")
                 else:
                     st.info("Onvoldoende historische data voor backtest.")
 
     with tab4:
         st.subheader("📈 Automatische Portefeuille Optimalisatie")
-        st.markdown("Berekent de optimale gewogen verdeling (Maximum Sharpe Ratio benadering) voor de top-aandelen.")
+        st.markdown("Berekent de optimale gewogen verdeling voor de gesprekte top-aandelen.")
         top_res = results[:5]
         if top_res:
             equal_weight = round(100.0 / len(top_res), 2)
-            opt_data = [{"Ticker": r["Ticker"], "Bedrijf": r["Bedrijf"], "Optimale Allocatie (%)": equal_weight, "Risico (VaR 95%)": f"{r['VaR 95% (%)']}%"} for r in top_res]
+            opt_data = [{"Ticker": r["Ticker"], "Bedrijf": r["Bedrijf"], "Sector": r["Sector"], "Optimale Allocatie (%)": equal_weight, "Risico (VaR 95%)": f"{r['VaR 95% (%)']}%"} for r in top_res]
             st.dataframe(pd.DataFrame(opt_data), use_container_width=True, hide_index=True)
         else:
-            st.info("Selecteer minimaal een paar aandelen voor optimalisatie.")
+            st.info("Selecteer minimaal een paar aandelen.")
 
     with tab5:
         st.subheader("Gedetailleerde AI-Agent & Gerichte Nieuwsrobot per Aandeel")
@@ -518,7 +529,7 @@ else:
 
         c1, c2, c3 = st.columns(3)
         c1.metric(f"{stock_detail['Bedrijf']} ({stock_detail['Ticker']})", f"₺{stock_detail['Koers']}", f"Cijfer: {stock_detail['Totaal_Cijfer']}/10")
-        c2.metric("Steun S1 / Weerstand R1", f"₺{stock_detail['S1']} / ₺{stock_detail['R1']}", f"Pivot: ₺{stock_detail['Pivot']}")
+        c2.metric("Steun S1 / Weerstand R1", f"₺{stock_detail['S1']} / ₺{stock_detail['R1']}", f"Sector: {stock_detail['Sector']}")
         c3.metric("ATR Stop-Loss / Doel", f"₺{stock_detail['Stop_Loss']} / ₺{stock_detail['Doel_ATR']}", f"Analist Doel: ₺{stock_detail['Analist_Doel'] or 'N/B'}")
 
         st.markdown("### 🤖 Speciale AI-Nieuwsrobot (Gerichte Duiding)")
