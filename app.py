@@ -11,7 +11,7 @@ import xml.etree.ElementTree as ET
 # ==============================================================================
 # CONFIGURATIE & SECTOR MAPPING
 # ==============================================================================
-st.set_page_config(page_title="BIST Scanner 3.5 — Pro Hedgefund Edition", layout="wide")
+st.set_page_config(page_title="BIST Scanner 3.6 — Pro Hedgefund Edition + Audit", layout="wide")
 
 WATCHLIST = [
     "GARAN.IS", "AKBNK.IS", "YKBNK.IS", "ISCTR.IS", "HALKB.IS", "VAKBN.IS",
@@ -283,6 +283,62 @@ Geef een JSON output terug met:
     except:
         return None
 
+@st.cache_data(ttl=900, show_spinner=False)
+def run_audit_agent(ticker, company, ai_report, q_metrics, headlines_tuple, api_key):
+    """
+    Validator / Fact-Check Agent: Controleert of de AI-rapportage geen hallucinaties of 
+    onverifieerbare claims bevat op basis van de werkelijke kwartaaldata en nieuwsheadlines.
+    """
+    if not api_key or not ai_report: return None
+    try:
+        headlines_text = "\n".join([f"- {h}" for h in headlines_tuple]) if headlines_tuple else "Geen headlines."
+        prompt = f"""
+Je bent een strenge Compliance & Risk Officer / Fact-Checker bij een hedgefund.
+Controleer het volgende AI-gegenereerde rapport voor aandeel {company} ({ticker}) op feitelijke juistheid, hallucinaties en onverifieerbare beweringen.
+
+ECHTE BRON-DATA & KWARTAALCIJFERS:
+- Omzet: {q_metrics.get('q_rev_m')}M TRY | Nettowinst: {q_metrics.get('q_net_m')}M TRY
+- Ruwe Headlines / KAP:
+{headlines_text}
+
+TE CONTROLEREN AI RAPPORT:
+- Sentiment: {ai_report.get('sentiment_label')}
+- Kwartaal Analyse: {ai_report.get('kwartaal_analyse')}
+- KAP Duiding: {ai_report.get('kap_en_nieuws_duiding')}
+- Katalysator: {ai_report.get('belangrijkste_katalysator')}
+- Risico: {ai_report.get('grootste_risico')}
+
+INSTRUCTIES:
+Beoordeel of de claims in het AI-rapport kloppen met de bovenstaande data en of er sprake is van verzonnen informatie.
+Geef JSON terug met:
+- audit_status ("Goedgekeurd", "Waarschuwing", "Afgekeurd / Hallucinatie gedetecteerd")
+- betrouwbaarheid_score (getal van 1 tot 10)
+- audit_opmerkingen (Korte toelichting in het Nederlands of alle claims feitelijk onderbouwd zijn)
+"""
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={urllib.parse.quote(api_key.strip())}"
+        payload = {
+            "contents": [{"parts": [{"text": prompt}]}],
+            "generationConfig": {
+                "temperature": 0.1,
+                "responseMimeType": "application/json",
+                "responseSchema": {
+                    "type": "OBJECT",
+                    "properties": {
+                        "audit_status": {"type": "STRING"},
+                        "betrouwbaarheid_score": {"type": "NUMBER"},
+                        "audit_opmerkingen": {"type": "STRING"}
+                    },
+                    "required": ["audit_status", "betrouwbaarheid_score", "audit_opmerkingen"]
+                }
+            }
+        }
+        req = urllib.request.Request(url, data=json.dumps(payload).encode("utf-8"), headers={"Content-Type": "application/json"}, method="POST")
+        with urllib.request.urlopen(req, timeout=15) as resp:
+            resp_data = json.loads(resp.read().decode("utf-8"))
+            return json.loads(resp_data["candidates"][0]["content"]["parts"][0]["text"])
+    except:
+        return None
+
 def analyze_stock(ticker, macro_info, api_key=None, use_ai_agent=True):
     hist = get_history(ticker, "1y")
     if hist.empty or len(hist) < 30: return None
@@ -340,9 +396,12 @@ def analyze_stock(ticker, macro_info, api_key=None, use_ai_agent=True):
     all_headlines = tuple([n["titel"] for n in (pos_news + neg_news + unc_news)])
 
     ai_report = None
+    audit_report = None
     if use_ai_agent and api_key:
         fundamentals_dict = {"pe": pe, "pb": pb, "margin_pct": round(margin*100, 1) if margin else None}
         ai_report = run_financial_news_agent(ticker, company, fundamentals_dict, q_metrics, all_headlines, macro_info.get("usd_try"), api_key)
+        if ai_report:
+            audit_report = run_audit_agent(ticker, company, ai_report, q_metrics, all_headlines, api_key)
 
     news_adj = safe_float(ai_report.get("score_adjustment")) if ai_report else 0.0
     if not ai_report:
@@ -355,7 +414,8 @@ def analyze_stock(ticker, macro_info, api_key=None, use_ai_agent=True):
     return {
         "Ticker": ticker, "Bedrijf": company, "Koers": round(price, 2),
         "Totaal_Cijfer": total_score, "Tech_Cijfer": tech_score, "Fund_Cijfer": fund_score,
-        "AI_Sentiment": ai_sentiment, "AI_Correctie": round(news_adj, 1), "AI_Rapport": ai_report,
+        "AI_Sentiment": ai_sentiment, "AI_Correctie": round(news_adj, 1),
+        "AI_Rapport": ai_report, "Audit_Rapport": audit_report,
         "Kwartaal_Data": q_metrics, "RSI": round(rsi, 1) if rsi else None,
         "Trend": sr["Trend"] if sr else "Onbekend", "ATR": round(atr, 2),
         "Pivot": sr["Pivot"] if sr else None, "R1": sr["R1"] if sr else None, "R2": sr["R2"] if sr else None, "R3": sr["R3"] if sr else None,
@@ -371,18 +431,18 @@ def analyze_stock(ticker, macro_info, api_key=None, use_ai_agent=True):
 # ==============================================================================
 # STREAMLIT DASHBOARD UI
 # ==============================================================================
-st.title("📊 BIST Scanner 3.5 — Pro Hedgefund Edition")
-st.markdown("Geautomatiseerde analyse van Borsa Istanbul-aandelen met technische niveaus, kwartaalcijfers en een **Google Gemini AI-Agent**.")
+st.title("📊 BIST Scanner 3.6 — Pro Hedgefund Edition + AI Audit")
+st.markdown("Geavanceerde BIST-scanner inclusief **KAP/Kwartaal AI-Agent** en een **AI Fact-Check & Audit Agent** ter voorkoming van hallucinaties.")
 
 with st.sidebar:
-    st.header("🤖 AI-Agent Instellingen")
+    st.header("🤖 AI-Agent & Audit Instellingen")
     default_key = os.environ.get("GEMINI_API_KEY", "")
     if not default_key:
         try: default_key = st.secrets.get("GEMINI_API_KEY", "")
         except: default_key = ""
 
     gemini_api_key = st.text_input("Gemini API Key:", value=default_key, type="password")
-    use_ai_agent = st.toggle("Activeer KAP & Kwartaal AI-Agent", value=True)
+    use_ai_agent = st.toggle("Activeer AI-Agent & Fact-Checker", value=True)
 
     st.divider()
     selected_tickers = st.multiselect("Selecteer BIST-aandelen:", options=WATCHLIST, default=WATCHLIST[:10])
@@ -404,7 +464,7 @@ st.divider()
 
 results = []
 if selected_tickers:
-    progress_bar = st.progress(0, text="Aandelen en AI-agent inzichten laden...")
+    progress_bar = st.progress(0, text="Aandelen en AI-audit laden...")
     for idx, t in enumerate(selected_tickers):
         res = analyze_stock(t, macro, api_key=gemini_api_key, use_ai_agent=use_ai_agent)
         if res and res["Totaal_Cijfer"] >= min_score:
@@ -419,9 +479,9 @@ else:
     df_overview = pd.DataFrame(results)
 
     tab1, tab2, tab3, tab4 = st.tabs([
-        "🏆 Quant Ranglijst & AI Oordeel",
-        "📐 Steun, Weerstand & Daytrading",
-        "🤖 AI-Agent & Diepte-analyse",
+        "🏆 Quant Ranglijst",
+        "📐 Steun & Weerstand",
+        "🤖 AI-Agent & Fact-Check Audit",
         "📰 Macro & KAP Nieuwsfeed"
     ])
 
@@ -431,12 +491,12 @@ else:
         st.dataframe(df_overview[display_cols], use_container_width=True, hide_index=True)
 
     with tab2:
-        st.subheader("Pivot Points, Steun (S1-S3), Weerstand (R1-R3) & ATR")
+        st.subheader("Pivot Points, Steun & Weerstand")
         sr_cols = ["Ticker", "Koers", "Trend", "S3", "S2", "S1", "Pivot", "R1", "R2", "R3", "Stop_Loss", "Doel_ATR"]
         st.dataframe(df_overview[sr_cols], use_container_width=True, hide_index=True)
 
     with tab3:
-        st.subheader("Gedetailleerde AI-Agent, Kwartaalcijfers & KAP-inspectie")
+        st.subheader("Gedetailleerde AI-Agent & Fact-Check Audit")
         chosen = st.selectbox("Kies een aandeel:", [r["Ticker"] for r in results])
         stock_detail = next(r for r in results if r["Ticker"] == chosen)
 
@@ -447,6 +507,7 @@ else:
 
         st.markdown("### 🤖 Financiële & KAP AI-Agent Analyse")
         ai_rep = stock_detail.get("AI_Rapport")
+        audit_rep = stock_detail.get("Audit_Rapport")
         q_info = stock_detail.get("Kwartaal_Data", {})
 
         if q_info.get("last_quarter_date"):
@@ -456,22 +517,29 @@ else:
             qc3.metric("Kwartaal Nettowinst", f"₺{q_info['q_net_m']:,.1f}M" if q_info.get("q_net_m") else "N/B", f"{q_info['qoq_net_growth']}% QoQ" if q_info.get("qoq_net_growth") else None)
 
         if ai_rep:
-            st.success(f"**AI Sentiment:** {ai_rep.get('sentiment_label')} (Score-impact: {stock_detail['AI_Correctie']:+g})\n\n**📊 Kwartaalcijfers:** {ai_rep.get('kwartaal_analyse')}\n\n**📰 KAP Duiding:** {ai_rep.get('kap_en_nieuws_duiding')}")
+            st.success(f"**AI Sentiment:** {ai_rep.get('sentiment_label')} (Score-impact: {stock_detail['AI_Correctie']:+g})\n\n**📊 Kwartaal Analyse:** {ai_rep.get('kwartaal_analyse')}\n\n**📰 KAP Duiding:** {ai_rep.get('kap_en_nieuws_duiding')}")
             k_col1, k_col2 = st.columns(2)
             k_col1.info(f"🚀 **Katalysator:** {ai_rep.get('belangrijkste_katalysator')}")
             k_col2.warning(f"⚠️ **Risico:** {ai_rep.get('grootste_risico')}")
+            
+            # Audit Resultaat Section
+            st.markdown("---")
+            st.markdown("### 🛡️ AI Fact-Check & Audit Resultaat (Validator Agent)")
+            if audit_rep:
+                status = audit_rep.get("audit_status", "Onbekend")
+                score = audit_rep.get("betrouwbaarheid_score", 0)
+                remarks = audit_rep.get("audit_opmerkingen", "Geen opmerkingen.")
+                
+                if "Goedgekeurd" in status:
+                    st.success(f"**Audit Status:** {status} (Betrouwbaarheid: {score}/10)\n\n**Oordeel:** {remarks}")
+                elif "Waarschuwing" in status:
+                    st.warning(f"**Audit Status:** {status} (Betrouwbaarheid: {score}/10)\n\n**Oordeel:** {remarks}")
+                else:
+                    st.error(f"**Audit Status:** {status} (Betrouwbaarheid: {score}/10)\n\n**Oordeel:** {remarks}")
+            else:
+                st.info("Geen audit rapport beschikbaar.")
         else:
-            st.info("Vul je Gemini API Key in de sidebar in voor het live AI-rapport.")
-
-        st.info(f"**Technische relevantie:** {stock_detail['Relevantie_SR']}")
-
-        col_t, col_f = st.columns(2)
-        with col_t:
-            st.markdown(f"**📈 Technische Onderbouwing ({stock_detail['Tech_Cijfer']}/10)**")
-            for reason in stock_detail["Tech_Redenen"]: st.write(f"- {reason}")
-        with col_f:
-            st.markdown(f"**🏛️ Fundamentele Onderbouwing ({stock_detail['Fund_Cijfer']}/10)**")
-            for reason in stock_detail["Fund_Redenen"]: st.write(f"- {reason}")
+            st.info("Vul je Gemini API Key in de sidebar in voor het live AI-rapport en de fact-check audit.")
 
         st.markdown("**📰 Ruwe Bronberichten & KAP-headlines**")
         all_stock_news = [("🟢 Positief", n) for n in stock_detail["Pos_Nieuws"]] + [("🔴 Negatief", n) for n in stock_detail["Neg_Nieuws"]] + [("⚪ Onduidelijk", n) for n in stock_detail["Unc_Nieuws"]]
