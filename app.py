@@ -11,7 +11,7 @@ import xml.etree.ElementTree as ET
 # ==============================================================================
 # CONFIGURATIE & MULTI-AGENT SETUP
 # ==============================================================================
-st.set_page_config(page_title="BIST Scanner 4.0 — Multi-Agent Hedgefund Edition", layout="wide")
+st.set_page_config(page_title="BIST Scanner 4.2 — 8-Agent Hedgefund Edition", layout="wide")
 
 WATCHLIST = [
     "GARAN.IS", "AKBNK.IS", "YKBNK.IS", "ISCTR.IS", "HALKB.IS", "VAKBN.IS",
@@ -226,7 +226,7 @@ def get_news():
 @st.cache_data(ttl=900, show_spinner=False)
 def get_stock_news(ticker, company_name):
     code = ticker.replace(".IS", "")
-    query = urllib.parse.quote(f"{code} OR \"{company_name[:12]}\" KAP hisse bilanço yatırım")
+    query = urllib.parse.quote(f"{code} OR \"{company_name[:12]}\" KAP hisse bilanço yatırım geri alım")
     url = f"https://news.google.com/rss/search?q={query}&hl=tr&gl=TR&ceid=TR:tr"
     pos_list, neg_list, unc_list = [], [], []
     try:
@@ -248,7 +248,7 @@ def get_stock_news(ticker, company_name):
     return pos_list, neg_list, unc_list
 
 # ==============================================================================
-# MULTI-AGENT AI SYSTEM (ROBOTS 1 t/m 4)
+# MULTI-AGENT AI SYSTEM (ROBOTS 1 t/m 8)
 # ==============================================================================
 
 @st.cache_data(ttl=900, show_spinner=False)
@@ -257,7 +257,7 @@ def run_agent_news_scraper(ticker, company, headlines_tuple, api_key):
     if not api_key or not headlines_tuple: return "Geen gerichte AI-nieuwsanalyse beschikbaar."
     try:
         headlines_text = "\n".join([f"- {h}" for h in headlines_tuple])
-        prompt = f"Analyseer deze KAP-meldingen en nieuwsheadlines voor aandeel {company} ({ticker}):\n{headlines_text}\nGeef een krachtige samenvatting (max 3 zinnen) in het Nederlands over de impact."
+        prompt = f"Analyseer deze KAP-meldingen en nieuwsheadlines voor aandeel {company} ({ticker}):\n{headlines_text}\nGeef een krachtige samenvatting (max 3 zinnen) over de impact."
         url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={urllib.parse.quote(api_key.strip())}"
         payload = {"contents": [{"parts": [{"text": prompt}]}], "generationConfig": {"temperature": 0.2}}
         req = urllib.request.Request(url, data=json.dumps(payload).encode("utf-8"), headers={"Content-Type": "application/json"}, method="POST")
@@ -267,8 +267,30 @@ def run_agent_news_scraper(ticker, company, headlines_tuple, api_key):
         return "Nieuws-robot kon geen data verwerken."
 
 @st.cache_data(ttl=900, show_spinner=False)
+def run_agent_news_impact_converter(news_titles_tuple, watchlist_tickers_str, api_key):
+    """Robot 5: De Nieuws-Impact Converter"""
+    if not api_key or not news_titles_tuple: return "Geen impact-conversie mogelijk."
+    try:
+        news_text = "\n".join([f"- {t}" for t in news_titles_tuple[:10]])
+        prompt = f"""
+Analyseer de volgende algemene beursnieuwsheadlines uit Turkije:\n{news_text}
+Watchlijst: {watchlist_tickers_str}.
+Geef een helder overzicht in het Nederlands met:
+1. **Belangrijkste Nieuwstrend**
+2. **Profiteurs (Welke aandelen profiteren en waarom)**
+3. **Benadeelden (Welke aandelen lopen risico en waarom)**
+"""
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={urllib.parse.quote(api_key.strip())}"
+        payload = {"contents": [{"parts": [{"text": prompt}]}], "generationConfig": {"temperature": 0.3}}
+        req = urllib.request.Request(url, data=json.dumps(payload).encode("utf-8"), headers={"Content-Type": "application/json"}, method="POST")
+        with urllib.request.urlopen(req, timeout=20) as resp:
+            return json.loads(resp.read().decode("utf-8"))["candidates"][0]["content"]["parts"][0]["text"]
+    except:
+        return "Nieuws-Impact Converter kon de analyse niet voltooien."
+
+@st.cache_data(ttl=900, show_spinner=False)
 def run_agent_analyst(ticker, company, fundamentals_dict, q_metrics, headlines_tuple, macro_usd_try, api_key):
-    """Robot 1: De Data- & Kwantitatieve Robot"""
+    """Robot 1: De Kwantitatieve Analist"""
     if not api_key: return None
     try:
         headlines_text = "\n".join([f"- {h}" for h in headlines_tuple]) if headlines_tuple else "Geen headlines."
@@ -305,7 +327,7 @@ Geef JSON met: sentiment_label, score_adjustment (-2.0 tot +2.0), kwartaal_analy
 
 @st.cache_data(ttl=900, show_spinner=False)
 def run_agent_auditor(ticker, company, ai_report, q_metrics, api_key):
-    """Robot 3: De Auditor / Fact-Checker (Controleert op fouten & hallucinaties)"""
+    """Robot 3: De Fact-Checker / Auditor"""
     if not api_key or not ai_report: return None
     try:
         prompt = f"Controleer dit rapport voor {company} op feitelijke juistheid op basis van omzet {q_metrics.get('q_rev_m')}M. Geef JSON met audit_status ('Goedgekeurd', 'Waarschuwing', 'Gecorrigeerd'), betrouwbaarheid_score (1-10), audit_opmerkingen."
@@ -332,9 +354,50 @@ def run_agent_auditor(ticker, company, ai_report, q_metrics, api_key):
     except:
         return None
 
+@st.cache_data(ttl=900, show_spinner=False)
+def run_agent_debt_interest_modeler(ticker, company, q_metrics, api_key):
+    """Robot 6: De Rentesensitiviteit & Schulden-Modelleur (Simuleert -3% rente-impact op nettowinst)"""
+    if not api_key: return "Geen rentemodel beschikbaar."
+    try:
+        net_profit = q_metrics.get('q_net_m') or 100.0
+        prompt = f"""
+Je bent een rente- en schulden-modelleur bij een hedgefund. Voor aandeel {company} ({ticker}) met een recente kwartaalnettowinst van {net_profit}M TRY:
+Simuleer de impact van een beleidsrenteverlaging van 3% (300 basispunten) door de Turkse centrale bank (TCMB) voor het volgende kwartaal.
+Bereken grofweg hoeveel besparing op rentelasten dit kan opleveren en hoeveel procent hoger de nettowinst daardoor naar schatting kan uitvallen.
+Geef een helder, kort financieel scenario in het Nederlands (max 3 zinnen).
+"""
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={urllib.parse.quote(api_key.strip())}"
+        payload = {"contents": [{"parts": [{"text": prompt}]}], "generationConfig": {"temperature": 0.2}}
+        req = urllib.request.Request(url, data=json.dumps(payload).encode("utf-8"), headers={"Content-Type": "application/json"}, method="POST")
+        with urllib.request.urlopen(req, timeout=15) as resp:
+            return json.loads(resp.read().decode("utf-8"))["candidates"][0]["content"]["parts"][0]["text"]
+    except:
+        return "Rentemodel kon simulatie niet voltooien."
+
+@st.cache_data(ttl=900, show_spinner=False)
+def run_agent_debt_validator(ticker, company, debt_simulation_text, api_key):
+    """Robot 7: De Rente- & Scenario-Validator"""
+    if not api_key: return "Geen validatie beschikbaar."
+    try:
+        prompt = f"Controleer de volgende rentesimulatie voor {company}: '{debt_simulation_text}'. Is deze schatting realistisch en financieel onderbouwd binnen de Turkse marktomstandigheden? Geef een kort accorderingsoordeel in het Nederlands."
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={urllib.parse.quote(api_key.strip())}"
+        payload = {"contents": [{"parts": [{"text": prompt}]}], "generationConfig": {"temperature": 0.1}}
+        req = urllib.request.Request(url, data=json.dumps(payload).encode("utf-8"), headers={"Content-Type": "application/json"}, method="POST")
+        with urllib.request.urlopen(req, timeout=15) as resp:
+            return json.loads(resp.read().decode("utf-8"))["candidates"][0]["content"]["parts"][0]["text"]
+    except:
+        return "Validatie kon niet worden voltooid."
+
+@st.cache_data(ttl=900, show_spinner=False)
+def run_agent_buyback_tracker(ticker, company, headlines_tuple):
+    """Robot 8: De Insider Buyback & Inkoop Tracker (Scant op geri alım / inkoopprogramma's)"""
+    buyback_hits = [h for h in headlines_tuple if "geri alım" in h.lower() or "pay alım" in h.lower() or "inkoop" in h.lower()]
+    if buyback_hits:
+        return f"🟢 Actieve Aandeleninkoop (Buyback) gedetecteerd in KAP/Nieuws: '{buyback_hits[0]}'"
+    return "⚪ Geen recente actieve aandeleninkoop (geri alım) meldingen gedetecteerd."
+
 def run_agent_auto_healer(ticker, exception_obj):
-    """Robot 4: De Zelfherstellende / Code-Fixer Robot (Vangt fouten af)"""
-    # Logt de fout en zorgt dat de app stabiel blijft draaien via veilige fallbacks
+    """Robot 4: De Zelfherstellende / Code-Fixer Robot"""
     return f"Auto-Healer ingegrepen voor {ticker}: App stabiel gehouden."
 
 def analyze_stock(ticker, macro_info, api_key=None, use_ai_agent=True):
@@ -380,8 +443,12 @@ def analyze_stock(ticker, macro_info, api_key=None, use_ai_agent=True):
         pos_news, neg_news, unc_news = get_stock_news(ticker, company)
         all_headlines = tuple([n["titel"] for n in (pos_news + neg_news + unc_news)])
         
-        # Samenwerking van Robot 1, 2 en 3
+        # Samenwerking van Robot 1 t/m 4, 6, 7 en 8
         news_ai_summary = run_agent_news_scraper(ticker, company, all_headlines, api_key)
+        buyback_status = run_agent_buyback_tracker(ticker, company, all_headlines)
+        debt_sim = run_agent_debt_interest_modeler(ticker, company, q_metrics, api_key)
+        debt_val = run_agent_debt_validator(ticker, company, debt_sim, api_key)
+
         ai_report, audit_report = None, None
         if use_ai_agent and api_key:
             fundamentals_dict = {"pe": pe, "pb": pb, "margin_pct": round(margin*100, 1) if margin else None}
@@ -398,163 +465,10 @@ def analyze_stock(ticker, macro_info, api_key=None, use_ai_agent=True):
             "Totaal_Cijfer": total_score, "Tech_Cijfer": tech_score, "Fund_Cijfer": fund_score,
             "AI_Sentiment": ai_sentiment, "AI_Correctie": round(news_adj, 1),
             "AI_Rapport": ai_report, "Audit_Rapport": audit_report,
-            "Dedicated_News_AI": news_ai_summary,
+            "Dedicated_News_AI": news_ai_summary, "Buyback_Status": buyback_status,
+            "Debt_Simulation": debt_sim, "Debt_Validation": debt_val,
             "Kwartaal_Data": q_metrics, "ADTV (M TRY)": adtv_m, "VaR 95% (%)": var_95, "Solvabiliteit": z_score,
             "RSI": round(rsi, 1) if rsi else None, "Trend": sr["Trend"] if sr else "Onbekend",
             "Pivot": sr["Pivot"] if sr else None,
             "S1": sr["S1"] if sr else None, "S2": sr["S2"] if sr else None, "S3": sr["S3"] if sr else None,
-            "R1": sr["R1"] if sr else None, "R2": sr["R2"] if sr else None, "R3": sr["R3"] if sr else None,
-            "Stop_Loss": round(max(0.01, price - (1.5 * atr)), 2), "Doel_ATR": round(price + (2.5 * atr), 2),
-            "K/W (PE)": round(pe, 1) if pe else None, "Winstmarge (%)": round(margin * 100, 1) if margin else None,
-            "Analist_Doel": round(analyst_target, 2) if analyst_target else None, "Analist_Advies": recommendation,
-            "Pos_Nieuws": pos_news, "Neg_Nieuws": neg_news, "Unc_Nieuws": unc_news
-        }
-    except Exception as e:
-        run_agent_auto_healer(ticker, e)
-        return None
-
-# ==============================================================================
-# STREAMLIT DASHBOARD UI
-# ==============================================================================
-st.title("📊 BIST Scanner 4.0 — Multi-Agent Hedgefund Edition")
-st.markdown("Autonoom multi-agent platform met **4 gespecialiseerde AI-robots**, **Sector-Concentratielimiet**, **Backtest Tijdmachine** en **Portefeuille Optimalisatie**.")
-
-with st.sidebar:
-    st.header("🤖 Multi-Agent & Instellingen")
-    default_key = os.environ.get("GEMINI_API_KEY", "")
-    if not default_key:
-        try: default_key = st.secrets.get("GEMINI_API_KEY", "")
-        except: default_key = ""
-
-    gemini_api_key = st.text_input("Gemini API Key:", value=default_key, type="password")
-    use_ai_agent = st.toggle("Activeer Multi-Agent Team", value=True)
-
-    st.divider()
-    max_per_sector = st.slider("Max. aantal aandelen per sector (Concentratielimiet):", 1, 3, 1, 1)
-    min_adtv = st.number_input("Min. Dagomzet (Milyon TRY / ADTV):", min_value=0.0, max_value=500.0, value=10.0, step=5.0)
-    selected_tickers = st.multiselect("Selecteer BIST-aandelen:", options=WATCHLIST, default=WATCHLIST)
-    min_score = st.slider("Minimale Totaalscore:", 1.0, 10.0, 5.0, 0.5)
-    
-    if st.button("🔄 Cache wissen & Verversen"):
-        st.cache_data.clear()
-        st.rerun()
-
-with st.spinner("Macro-indicatoren laden..."):
-    macro = get_macro_data()
-
-col1, col2, col3, col4 = st.columns(4)
-col1.metric("💱 USD/TRY Koers", f"₺{macro['usd_try']:.2f}" if macro["usd_try"] else "N/B", "Devaluatie-buffer actief" if macro["dev_risk"] else "Stabiel")
-col2.metric("📈 BIST 100 (XU100)", f"{macro['xu100_price']:,.0f}" if macro["xu100_price"] else "N/B", f"{macro['xu100_return']:.1f}% (3m)" if macro["xu100_return"] is not None else None)
-col3.metric("🧭 BIST 100 Trend", macro["xu100_sr"]["Trend"] if macro["xu100_sr"] else "N/B")
-col4.metric("🛡️ XU100 S1 / R1", f"{macro['xu100_sr']['S1']:,.0f} / {macro['xu100_sr']['R1']:,.0f}" if macro["xu100_sr"] else "N/B")
-
-st.divider()
-
-results = []
-if selected_tickers:
-    progress_bar = st.progress(0, text="Multi-Agent team aan het werk (Scannen & Fact-checken)...")
-    raw_results = []
-    for idx, t in enumerate(selected_tickers):
-        res = analyze_stock(t, macro, api_key=gemini_api_key, use_ai_agent=use_ai_agent)
-        if res and res["Totaal_Cijfer"] >= min_score:
-            adtv = res.get("ADTV (M TRY)")
-            if adtv is None or adtv >= min_adtv:
-                raw_results.append(res)
-        progress_bar.progress((idx + 1) / len(selected_tickers), text=f"Geanalyseerd door Agenten: {t}")
-    progress_bar.empty()
-
-    # Sector Concentratielimiet Toepassen
-    raw_results = sorted(raw_results, key=lambda x: x["Totaal_Cijfer"], reverse=True)
-    sector_counts = {}
-    for r in raw_results:
-        sec = r["Sector"]
-        current_count = sector_counts.get(sec, 0)
-        if current_count < max_per_sector:
-            results.append(r)
-            sector_counts[sec] = current_count + 1
-
-if not results:
-    st.warning("Geen aandelen gevonden die voldoen aan de criteria.")
-else:
-    df_overview = pd.DataFrame(results)
-
-    tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
-        "🏆 Ranglijst",
-        "📐 Steun & Weerstand",
-        "⏳ Backtest Tijdmachine",
-        "📈 Portefeuille Optimalisatie",
-        "🤖 Multi-Agent AI Analyse",
-        "📰 Macro & Algemeen Nieuws"
-    ])
-
-    with tab1:
-        st.subheader("Portefeuille Ranglijst & Scores (Spreiding gewaarborgd)")
-        display_cols = ["Ticker", "Bedrijf", "Sector", "Koers", "Totaal_Cijfer", "Tech_Cijfer", "Fund_Cijfer", "AI_Sentiment", "ADTV (M TRY)"]
-        st.dataframe(df_overview[display_cols], use_container_width=True, hide_index=True)
-
-    with tab2:
-        st.subheader("Steun- en Weerstandsniveaus (Pivot & S1-S3 / R1-R3)")
-        sr_cols = ["Ticker", "Bedrijf", "Sector", "Koers", "Trend", "S1", "Pivot", "R1", "Stop_Loss", "Doel_ATR"]
-        st.dataframe(df_overview[sr_cols], use_container_width=True, hide_index=True)
-
-    with tab3:
-        st.subheader("⏳ Historische Backtest Tijdmachine")
-        if st.button("🚀 Start Backtest simulatie"):
-            with st.spinner("Historische data doorlichten..."):
-                perf_list = []
-                for r in results[:5]:
-                    h_df = get_history(r["Ticker"], "6mo")
-                    if not h_df.empty and len(h_df) > 1:
-                        ret = ((h_df["Close"].iloc[-1] / h_df["Close"].iloc[0]) - 1) * 100
-                        perf_list.append({"Ticker": r["Ticker"], "Bedrijf": r["Bedrijf"], "Sector": r["Sector"], "Rendement 6M (%)": round(ret, 2)})
-                if perf_list:
-                    st.dataframe(pd.DataFrame(perf_list), use_container_width=True, hide_index=True)
-                    st.success("Backtest voltooid!")
-
-    with tab4:
-        st.subheader("📈 Automatische Portefeuille Optimalisatie")
-        top_res = results[:5]
-        if top_res:
-            equal_weight = round(100.0 / len(top_res), 2)
-            opt_data = [{"Ticker": r["Ticker"], "Bedrijf": r["Bedrijf"], "Sector": r["Sector"], "Optimale Allocatie (%)": equal_weight, "Risico (VaR 95%)": f"{r['VaR 95% (%)']}%"} for r in top_res]
-            st.dataframe(pd.DataFrame(opt_data), use_container_width=True, hide_index=True)
-
-    with tab5:
-        st.subheader("🤖 Multi-Agent AI Team Rapport")
-        chosen = st.selectbox("Kies een aandeel:", [r["Ticker"] for r in results])
-        stock_detail = next(r for r in results if r["Ticker"] == chosen)
-
-        c1, c2, c3 = st.columns(3)
-        c1.metric(f"{stock_detail['Bedrijf']} ({stock_detail['Ticker']})", f"₺{stock_detail['Koers']}", f"Cijfer: {stock_detail['Totaal_Cijfer']}/10")
-        c2.metric("Steun S1 / Weerstand R1", f"₺{stock_detail['S1']} / ₺{stock_detail['R1']}", f"Sector: {stock_detail['Sector']}")
-        c3.metric("ATR Stop-Loss / Doel", f"₺{stock_detail['Stop_Loss']} / ₺{stock_detail['Doel_ATR']}")
-
-        st.markdown("### 🤖 Robot 2: Nieuws- & KAP-Robot Duiding")
-        st.info(stock_detail.get("Dedicated_News_AI", "Geen nieuwsduiding."))
-
-        ai_rep = stock_detail.get("AI_Rapport")
-        audit_rep = stock_detail.get("Audit_Rapport")
-        q_info = stock_detail.get("Kwartaal_Data", {})
-
-        if q_info.get("last_quarter_date"):
-            qc1, qc2, qc3 = st.columns(3)
-            qc1.metric("Laatste Kwartaal", q_info["last_quarter_date"])
-            qc2.metric("Kwartaalomzet", f"₺{q_info['q_rev_m']:,.1f}M" if q_info.get("q_rev_m") else "N/B")
-            qc3.metric("Kwartaal Nettowinst", f"₺{q_info['q_net_m']:,.1f}M" if q_info.get("q_net_m") else "N/B")
-
-        if ai_rep:
-            st.success(f"**Robot 1 (Analyst) Sentiment:** {ai_rep.get('sentiment_label')}\n\n**Kwartaal Analyse:** {ai_rep.get('kwartaal_analyse')}\n\n**KAP Duiding:** {ai_rep.get('kap_en_nieuws_duiding')}")
-            
-            st.markdown("---")
-            st.markdown("### 🛡️ Robot 3: Auditor & Fact-Checker Oordeel")
-            if audit_rep:
-                status = audit_rep.get("audit_status", "Onbekend")
-                score = audit_rep.get("betrouwbaarheid_score", 0)
-                remarks = audit_rep.get("audit_opmerkingen", "Geen opmerkingen.")
-                st.info(f"**Audit Status:** {status} | **Betrouwbaarheid:** {score}/10\n\n**Controle-oordeel:** {remarks}")
-
-    with tab6:
-        st.subheader("Algemene BIST & Macro Nieuwsfeed")
-        news_df = get_news()
-        if not news_df.empty:
-            st.dataframe(news_df, use_container_width=True, hide_index=True)
+            "R1": sr["R1"] if sr else None, "R2":
