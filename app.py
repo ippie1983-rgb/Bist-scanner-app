@@ -11,7 +11,7 @@ import xml.etree.ElementTree as ET
 # ==============================================================================
 # CONFIGURATIE & SECTOR MAPPING
 # ==============================================================================
-st.set_page_config(page_title="BIST Scanner 3.7.2 — Institutional Hedgefund Edition", layout="wide")
+st.set_page_config(page_title="BIST Scanner 3.8 — Institutional Hedgefund Edition", layout="wide")
 
 WATCHLIST = [
     "GARAN.IS", "AKBNK.IS", "YKBNK.IS", "ISCTR.IS", "HALKB.IS", "VAKBN.IS",
@@ -425,6 +425,9 @@ def analyze_stock(ticker, macro_info, api_key=None, use_ai_agent=True):
         "AI_Rapport": ai_report, "Audit_Rapport": audit_report,
         "Kwartaal_Data": q_metrics, "ADTV (M TRY)": adtv_m, "VaR 95% (%)": var_95, "Solvabiliteit": z_score,
         "RSI": round(rsi, 1) if rsi else None, "Trend": sr["Trend"] if sr else "Onbekend",
+        "Pivot": sr["Pivot"] if sr else None,
+        "S1": sr["S1"] if sr else None, "S2": sr["S2"] if sr else None, "S3": sr["S3"] if sr else None,
+        "R1": sr["R1"] if sr else None, "R2": sr["R2"] if sr else None, "R3": sr["R3"] if sr else None,
         "Stop_Loss": round(max(0.01, price - (1.5 * atr)), 2), "Doel_ATR": round(price + (2.5 * atr), 2),
         "K/W (PE)": round(pe, 1) if pe else None, "Winstmarge (%)": round(margin * 100, 1) if margin else None,
         "Analist_Doel": round(analyst_target, 2) if analyst_target else None, "Analist_Advies": recommendation,
@@ -436,11 +439,11 @@ def analyze_stock(ticker, macro_info, api_key=None, use_ai_agent=True):
 # ==============================================================================
 # STREAMLIT DASHBOARD UI
 # ==============================================================================
-st.title("📊 BIST Scanner 3.7.2 — Institutional Hedgefund Edition")
-st.markdown("Institutioneel platform met **Liquiditeitsfilters (ADTV)**, **Value at Risk (VaR)**, **AI Fact-Check Audit** en **Correlatie Matrix**.")
+st.title("📊 BIST Scanner 3.8 — Institutional Hedgefund Edition")
+st.markdown("Professionele BIST scanner met **Steun & Weerstand (S1-S3, R1-R3)**, **Liquiditeitsfilters (ADTV)**, **Value at Risk** en **AI Fact-Check Audit**.")
 
 with st.sidebar:
-    st.header("⚙️ Institutionele Parameters")
+    st.header("⚙️ Instellingen & Filters")
     default_key = os.environ.get("GEMINI_API_KEY", "")
     if not default_key:
         try: default_key = st.secrets.get("GEMINI_API_KEY", "")
@@ -471,7 +474,7 @@ st.divider()
 
 results = []
 if selected_tickers:
-    progress_bar = st.progress(0, text="Aandelen scannen en risico's berekenen...")
+    progress_bar = st.progress(0, text="Aandelen scannen en analyseren...")
     for idx, t in enumerate(selected_tickers):
         res = analyze_stock(t, macro, api_key=gemini_api_key, use_ai_agent=use_ai_agent)
         if res and res["Totaal_Cijfer"] >= min_score:
@@ -488,8 +491,8 @@ else:
     df_overview = pd.DataFrame(results)
 
     tab1, tab2, tab3, tab4, tab5 = st.tabs([
-        "🏆 Quant Ranglijst",
-        "📐 Risico & Liquiditeit (VaR / ADTV)",
+        "🏆 Ranglijst",
+        "📐 Steun (S1-S3) & Weerstand (R1-R3)",
         "🔗 Portefeuille Correlatie",
         "🤖 AI-Agent & Fact-Check Audit",
         "📰 Macro & KAP Nieuwsfeed"
@@ -501,32 +504,32 @@ else:
         st.dataframe(df_overview[display_cols], use_container_width=True, hide_index=True)
 
     with tab2:
-        st.subheader("Institutioneel Risico & Liquiditeit")
-        risk_cols = ["Ticker", "Koers", "ADTV (M TRY)", "VaR 95% (%)", "Stop_Loss", "Doel_ATR", "Trend"]
-        st.dataframe(df_overview[risk_cols], use_container_width=True, hide_index=True)
+        st.subheader("Steun- en Weerstandsniveaus (Pivot & S1-S3 / R1-R3)")
+        st.markdown("Hier zie je de belangrijkste technische prijsgrenzen waar koersen vaak reageren.")
+        sr_cols = ["Ticker", "Koers", "Trend", "S3", "S2", "S1", "Pivot", "R1", "R2", "R3", "Stop_Loss", "Doel_ATR"]
+        st.dataframe(df_overview[sr_cols], use_container_width=True, hide_index=True)
 
     with tab3:
         st.subheader("Portefeuille Correlatie Matrix (Diversificatie Check)")
-        st.markdown("Berekent de onderlinge koerscorrelatie van de geselecteerde aandelen om concentratierisico te voorkomen.")
+        st.markdown("Berekent de onderlinge samenhang om te voorkomen dat je per ongeluk 5 dezelfde soorten aandelen koopt.")
         
         hist_dict = {r["Ticker"]: get_history(r["Ticker"], "6mo")["Close"] for r in results if not get_history(r["Ticker"], "6mo").empty}
         if len(hist_dict) >= 2:
             price_df = pd.DataFrame(hist_dict).dropna()
             corr_matrix = price_df.pct_change().corr()
-            # Oplossing: Standaard dataframe tonen zonder matplotlib background_gradient
             st.dataframe(corr_matrix, use_container_width=True)
         else:
             st.info("Onvoldoende data om correlatiematrix te berekenen.")
 
     with tab4:
         st.subheader("Gedetailleerde AI-Agent & Fact-Check Audit")
-        chosen = st.selectbox("Kies een aandeel:", [r["Ticker"] for r in results])
+        chosen = st.selectbox("Kies een aandeel voor uitleg:", [r["Ticker"] for r in results])
         stock_detail = next(r for r in results if r["Ticker"] == chosen)
 
         c1, c2, c3 = st.columns(3)
         c1.metric(f"{stock_detail['Bedrijf']} ({stock_detail['Ticker']})", f"₺{stock_detail['Koers']}", f"Cijfer: {stock_detail['Totaal_Cijfer']}/10")
-        c2.metric("ADTV (Dagomzet)", f"₺{stock_detail['ADTV (M TRY)']}M" if stock_detail['ADTV (M TRY)'] else "N/B")
-        c3.metric("VaR 95% (Dagrisico)", f"{stock_detail['VaR 95% (%)']}%" if stock_detail['VaR 95% (%)'] else "N/B")
+        c2.metric("Steun S1 / Weerstand R1", f"₺{stock_detail['S1']} / ₺{stock_detail['R1']}", f"Pivot: ₺{stock_detail['Pivot']}")
+        c3.metric("ATR Stop-Loss / Doel", f"₺{stock_detail['Stop_Loss']} / ₺{stock_detail['Doel_ATR']}", f"Analist Doel: ₺{stock_detail['Analist_Doel'] or 'N/B'}")
 
         st.markdown("### 🤖 Financiële & KAP AI-Agent Analyse")
         ai_rep = stock_detail.get("AI_Rapport")
