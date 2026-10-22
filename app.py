@@ -1,3 +1,4 @@
+import os
 import streamlit as st
 import yfinance as yf
 import pandas as pd
@@ -5,9 +6,18 @@ import numpy as np
 import urllib.request
 import urllib.parse
 import xml.etree.ElementTree as ET
+from pydantic import BaseModel, Field
 
-# BIST Scanner 3.0 — Complete Quant, Fundamentals, Steun/Weerstand & KAP/Nieuws
-st.set_page_config(page_title="BIST Scanner 3.0", layout="wide")
+# Optionele import van Google GenAI SDK zodat de app nooit crasht als het pakket nog mist
+try:
+    from google import genai
+    from google.genai import types
+    GENAI_AVAILABLE = True
+except ImportError:
+    GENAI_AVAILABLE = False
+
+# BIST Scanner 3.1 — Complete Quant, Fundamentals, Steun/Weerstand & AI KAP/Kwartaalcijfers Agent
+st.set_page_config(page_title="BIST Scanner 3.1 + AI Agent", layout="wide")
 
 WATCHLIST = [
     "GARAN.IS", "AKBNK.IS", "YKBNK.IS", "ISCTR.IS", "HALKB.IS", "VAKBN.IS",
@@ -37,6 +47,29 @@ NEGATIVE_KEYWORDS = [
     "verlies", "boete", "onderzoek", "schuld", "winstwaarschuwing", "sanctie", "oorlog"
 ]
 
+# ==============================================================================
+# GESTRUCTUREERD OUTPUT SCHEMA VOOR DE GEMINI AI-AGENT
+# ==============================================================================
+class FinancialAgentReport(BaseModel):
+    sentiment_label: str = Field(
+        description="Kies exact één uit: 'Sterk Positief', 'Positief', 'Neutraal', 'Negatief', 'Sterk Negatief'"
+    )
+    score_adjustment: float = Field(
+        description="Cijferaanpassing voor de quant-score tussen -2.0 (zeer slecht nieuws/cijfers) en +2.0 (uitstekende cijfers/order)."
+    )
+    kwartaal_analyse: str = Field(
+        description="Heldere analyse (2-3 zinnen in het Nederlands) van de kwartaalcijfers, marges, omzetgroei en waardering (K/W en K/B)."
+    )
+    kap_en_nieuws_duiding: str = Field(
+        description="Samenvatting en duiding (in het Nederlands) van de gevonden Turkse KAP-meldingen en nieuwsberichten."
+    )
+    belangrijkste_katalysator: str = Field(
+        description="De belangrijkste positieve aanjager voor het aandeel op dit moment (1 zin, Nederlands)."
+    )
+    grootste_risico: str = Field(
+        description="Het belangrijkste aandachtspunt of risico (bijv. schuld, SPK, inflatie, margedruk) (1 zin, Nederlands)."
+    )
+
 def safe_float(value):
     try:
         value = float(value)
@@ -53,6 +86,47 @@ def get_history(ticker, period="1y"):
         return df.dropna(subset=["Close", "High", "Low"])
     except Exception:
         return pd.DataFrame()
+
+@st.cache_data(ttl=900, show_spinner=False)
+def get_quarterly_metrics(ticker):
+    """Haalt de laatste kwartaalcijfers (omzet en nettowinst) op uit Yahoo Finance."""
+    q_data = {
+        "last_quarter_date": None,
+        "q_rev_m": None,
+        "q_net_m": None,
+        "qoq_rev_growth": None,
+        "qoq_net_growth": None
+    }
+    try:
+        t_obj = yf.Ticker(ticker)
+        q_inc = t_obj.quarterly_income_stmt
+        if q_inc is not None and not q_inc.empty:
+            cols = q_inc.columns
+            q_data["last_quarter_date"] = str(cols[0])[:10]
+
+            rev_keys = [k for k in q_inc.index if "Total Revenue" in str(k) or "Operating Revenue" in str(k)]
+            net_keys = [k for k in q_inc.index if "Net Income" in str(k)]
+
+            if rev_keys:
+                r0 = safe_float(q_inc.loc[rev_keys[0], cols[0]])
+                if r0 is not None:
+                    q_data["q_rev_m"] = round(r0 / 1e6, 1)
+                if len(cols) >= 2:
+                    r1 = safe_float(q_inc.loc[rev_keys[0], cols[1]])
+                    if r0 is not None and r1 and r1 > 0:
+                        q_data["qoq_rev_growth"] = round(((r0 / r1) - 1) * 100, 1)
+
+            if net_keys:
+                n0 = safe_float(q_inc.loc[net_keys[0], cols[0]])
+                if n0 is not None:
+                    q_data["q_net_m"] = round(n0 / 1e6, 1)
+                if len(cols) >= 2:
+                    n1 = safe_float(q_inc.loc[net_keys[0], cols[1]])
+                    if n0 is not None and n1 and abs(n1) > 0:
+                        q_data["qoq_net_growth"] = round(((n0 - n1) / abs(n1)) * 100, 1)
+    except Exception:
+        pass
+    return q_data
 
 def calculate_rsi(close, period=14):
     delta = close.diff()
@@ -78,7 +152,6 @@ def calculate_sr_levels(hist):
     if price is None:
         return None
 
-    # Gebruik een recente swing-periode (bijv. laatste 20 handelsdagen) voor bruikbare R1-R3 en S1-S3
     window = hist.tail(min(20, len(hist) - 1)) if len(hist) > 2 else hist
     h = safe_float(window["High"].max()) or price
     l = safe_float(window["Low"].min()) or price
@@ -231,7 +304,7 @@ def get_stock_news(ticker, company_name):
         req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
         with urllib.request.urlopen(req, timeout=5) as response:
             root = ET.fromstring(response.read())
-        for item in root.findall(".//item")[:6]:
+        for item in root.findall(".//item")[:8]:
             title = item.findtext("title")
             pub_date = item.findtext("pubDate") or ""
             link = item.findtext("link") or ""
@@ -248,7 +321,69 @@ def get_stock_news(ticker, company_name):
         pass
     return pos_list, neg_list, unc_list
 
-def analyze_stock(ticker, macro_info):
+# ==============================================================================
+# DE GEMINI AI-AGENT VOOR KAP-NIEUWS & KWARTAALCIJFERS
+# ==============================================================================
+@st.cache_data(ttl=900, show_spinner=False)
+def run_financial_news_agent(ticker, company, fundamentals_dict, q_metrics, headlines_tuple, macro_usd_try, api_key):
+    """
+    Eén centrale AI-agent die zowel het Turkse KAP/bedrijfsnieuws als de kwartaalcijfers
+    en fundamentele ratio's analyseert en vertaalt naar een gestructureerd rapport.
+    """
+    if not GENAI_AVAILABLE or not api_key:
+        return None
+
+    try:
+        client = genai.Client(api_key=api_key)
+        headlines_text = "\n".join([f"- {h}" for h in headlines_tuple]) if headlines_tuple else "Geen recente headlines gevonden."
+
+        prompt = f"""
+Je bent een senior kwantitatief en fundamenteel aandelenanalist gespecialiseerd in Borsa Istanbul (BIST).
+Analyseer het aandeel {company} ({ticker}) op basis van onderstaande realtime kwartaalcijfers, waarderingsratio's en Turkse KAP/nieuwsberichten.
+
+MACRO CONTEXT:
+- USD/TRY wisselkoers: {macro_usd_try}
+
+FUNDAMENTELE WAARDERING & JAARCIJFERS:
+- Koers/Winst (PE): {fundamentals_dict.get('pe')}
+- Koers/Boekwaarde (PB): {fundamentals_dict.get('pb')}
+- Netto Winstmarge (%): {fundamentals_dict.get('margin_pct')}
+- Jaar-op-jaar Omzetgroei (%): {fundamentals_dict.get('rev_growth_pct')}
+- Analisten consensus advies: {fundamentals_dict.get('recommendation')} (Doelkoers: {fundamentals_dict.get('target')})
+
+LAATSTE KWARTAALCIJFERS (uit balans/resultatenrekening):
+- Laatste kwartaaldatum: {q_metrics.get('last_quarter_date')}
+- Kwartaalomzet (in miljoenen TRY): {q_metrics.get('q_rev_m')}
+- Kwartaal nettowinst (in miljoenen TRY): {q_metrics.get('q_net_m')}
+- Kwartaal-op-kwartaal (QoQ) omzetgroei (%): {q_metrics.get('qoq_rev_growth')}
+- Kwartaal-op-kwartaal (QoQ) winstgroei (%): {q_metrics.get('qoq_net_growth')}
+
+RECENTE TURKSE KAP & NIEUWS HEADLINES:
+{headlines_text}
+
+INSTRUCTIES:
+1. Beoordeel de kwartaalcijfers en fundamentele gezondheid (houd rekening met Turkse inflatieboekhouding en exportpositie).
+2. Duik in de Turkse headlines: filter ruis weg en identificeer echte KAP-signalen (nieuwe orders, dividend, aandeleninkoop, SPK-boetes, winstwaarschuwingen of sterke kwartaalresultaten).
+3. Geef een score_adjustment tussen -2.0 en +2.0 die we bij de basisscore optellen.
+4. Schrijf alle uitleg helder, zakelijk en beknopt in het Nederlands.
+"""
+        response = client.models.generate_content(
+            model="gemini-2.5-flash",
+            contents=prompt,
+            config=types.GenerateContentConfig(
+                response_mime_type="application/json",
+                response_schema=FinancialAgentReport,
+                temperature=0.2,
+            ),
+        )
+        if response and response.text:
+            report = FinancialAgentReport.model_validate_json(response.text)
+            return report.model_dump()
+    except Exception:
+        return None
+    return None
+
+def analyze_stock(ticker, macro_info, api_key=None, use_ai_agent=True):
     hist = get_history(ticker, "1y")
     if hist.empty or len(hist) < 30:
         return None
@@ -297,271 +432,7 @@ def analyze_stock(ticker, macro_info):
     }
     recommendation = recommendation_map.get(recommendation_raw, "Niet beschikbaar")
 
-    # 1. Technische score (0-10)
-    tech_points = 0.0
-    tech_reasons = []
-    if sma20 is not None:
-        if price > sma20:
-            tech_points += 2.0
-            tech_reasons.append("Koers boven SMA20")
-        else:
-            tech_reasons.append("Koers onder SMA20")
-    if sma50 is not None:
-        if price > sma50:
-            tech_points += 2.0
-            tech_reasons.append("Koers boven SMA50")
-        else:
-            tech_reasons.append("Koers onder SMA50")
-    if rsi is not None:
-        if 45 <= rsi <= 65:
-            tech_points += 2.0
-            tech_reasons.append("RSI in gezonde positieve zone")
-        elif 30 <= rsi < 45:
-            tech_points += 1.5
-            tech_reasons.append("RSI laag; herstel mogelijk")
-        elif rsi < 30:
-            tech_points += 1.0
-            tech_reasons.append("RSI oversold; wacht op trendomkeer")
-        elif 65 < rsi <= 72:
-            tech_points += 1.0
-            tech_reasons.append("RSI sterk")
-        else:
-            tech_reasons.append("RSI hoog; kans op afkoeling")
-    if macd_value is not None and macd_signal is not None:
-        if macd_value > macd_signal:
-            tech_points += 2.0
-            tech_reasons.append("MACD boven signaallijn")
-        else:
-            tech_reasons.append("MACD onder signaallijn")
-    if vol_ratio is not None and vol_ratio >= 1.3:
-        tech_points += 1.0
-        tech_reasons.append("Handelsvolume ondersteunt beweging")
-    if ticker in ["THYAO.IS", "EREGL.IS", "SISE.IS", "TUPRS.IS", "FROTO.IS", "ASELS.IS"] and macro_info.get("dev_risk"):
-        tech_points += 1.0
-        tech_reasons.append("Valutabuffer (harde valuta / export)")
-    tech_score = round(min(10.0, tech_points), 1)
+    # Haal kwartaalcijfers op
+    q_metrics = get_quarterly_metrics(ticker)
 
-    # 2. Fundamentele gezondheid & waardering (0-10)
-    fund_points = 0.0
-    fund_max = 0.0
-    fund_reasons = []
-    if margin is not None:
-        fund_max += 2.5
-        if margin > 0.10:
-            fund_points += 2.5
-            fund_reasons.append(f"Sterke winstmarge ({margin*100:.1f}%)")
-        elif margin > 0:
-            fund_points += 1.2
-            fund_reasons.append(f"Positieve winstmarge ({margin*100:.1f}%)")
-        else:
-            fund_reasons.append("Negatieve winstmarge (verlieslatend)")
-    if revenue_growth is not None:
-        fund_max += 2.5
-        if revenue_growth > 0.10:
-            fund_points += 2.5
-            fund_reasons.append(f"Sterke omzetgroei ({revenue_growth*100:.1f}%)")
-        elif revenue_growth > 0:
-            fund_points += 1.2
-            fund_reasons.append(f"Positieve omzetgroei ({revenue_growth*100:.1f}%)")
-        else:
-            fund_reasons.append("Krimpende omzet")
-    if pe is not None and pe > 0:
-        fund_max += 2.5
-        if pe < 10:
-            fund_points += 2.5
-            fund_reasons.append(f"Lage K/W-verhouding ({pe:.1f}x)")
-        elif pe <= 18:
-            fund_points += 1.5
-            fund_reasons.append(f"Redelijke K/W-verhouding ({pe:.1f}x)")
-        else:
-            fund_points += 0.5
-            fund_reasons.append(f"Hoge K/W-verhouding ({pe:.1f}x)")
-    if pb is not None and pb > 0:
-        fund_max += 2.5
-        if pb < 1.5:
-            fund_points += 2.5
-            fund_reasons.append(f"Aantrekkelijke koers/boekwaarde ({pb:.2f}x)")
-        elif pb <= 3.0:
-            fund_points += 1.5
-            fund_reasons.append(f"Normale koers/boekwaarde ({pb:.2f}x)")
-        else:
-            fund_points += 0.5
-            fund_reasons.append(f"Stevige koers/boekwaarde ({pb:.2f}x)")
-
-    if fund_max > 0:
-        fund_score = round((fund_points / fund_max) * 10.0, 1)
-    else:
-        fund_score = 5.0
-        fund_reasons.append("Beperkte fundamentele data via Yahoo Finance")
-
-    # 3. KAP & Nieuws sentiment
-    pos_news, neg_news, unc_news = get_stock_news(ticker, company)
-    news_adj = 0.0
-    if len(pos_news) > len(neg_news):
-        news_adj = 0.5
-    elif len(neg_news) > len(pos_news):
-        news_adj = -1.0
-
-    # Gecombineerd eindcijfer (60% Technisch, 40% Fundamenteel + Nieuws-correctie)
-    raw_total = (0.6 * tech_score) + (0.4 * fund_score) + news_adj
-    total_score = round(min(10.0, max(1.0, raw_total)), 1)
-
-    stop_loss = round(max(0.01, price - (1.5 * atr)), 2)
-    take_profit = round(price + (2.5 * atr), 2)
-    upside_analyst = round(((analyst_target / price) - 1) * 100, 1) if (analyst_target and price > 0) else None
-
-    return {
-        "Ticker": ticker,
-        "Bedrijf": company,
-        "Koers": round(price, 2),
-        "Totaal_Cijfer": total_score,
-        "Tech_Cijfer": tech_score,
-        "Fund_Cijfer": fund_score,
-        "RSI": round(rsi, 1) if rsi is not None else None,
-        "Trend": sr["Trend"] if sr else "Onbekend",
-        "Vol_Ratio": vol_ratio,
-        "ATR": round(atr, 2),
-        "Pivot": sr["Pivot"] if sr else None,
-        "R1": sr["R1"] if sr else None,
-        "R2": sr["R2"] if sr else None,
-        "R3": sr["R3"] if sr else None,
-        "S1": sr["S1"] if sr else None,
-        "S2": sr["S2"] if sr else None,
-        "S3": sr["S3"] if sr else None,
-        "Stop_Loss": stop_loss,
-        "Doel_ATR": take_profit,
-        "Ret_1M (%)": round(ret_1m, 1) if ret_1m is not None else None,
-        "Ret_3M (%)": round(ret_3m, 1) if ret_3m is not None else None,
-        "K/W (PE)": round(pe, 1) if pe is not None else None,
-        "K/B (PB)": round(pb, 2) if pb is not None else None,
-        "Winstmarge (%)": round(margin * 100, 1) if margin is not None else None,
-        "Analist_Doel": round(analyst_target, 2) if analyst_target else None,
-        "Analist_Upside (%)": upside_analyst,
-        "Analist_Advies": recommendation,
-        "Aantal_Analisten": analyst_count,
-        "Tech_Redenen": tech_reasons,
-        "Fund_Redenen": fund_reasons,
-        "Relevantie_SR": sr["Relevantie"] if sr else "",
-        "Pos_Nieuws": pos_news,
-        "Neg_Nieuws": neg_news,
-        "Unc_Nieuws": unc_news
-    }
-
-# ==============================================================================
-# STREAMLIT DASHBOARD UI
-# ==============================================================================
-st.title("📊 BIST Scanner 3.0 — Quant, Fundamentals, Steun/Weerstand & KAP")
-st.markdown("Geautomatiseerde analyse van de belangrijkste Borsa Istanbul-aandelen inclusief technische niveaus, waardering en nieuwsfiltering.")
-
-with st.sidebar:
-    st.header("⚙️ Scanner Instellingen")
-    selected_tickers = st.multiselect(
-        "Selecteer BIST-aandelen:",
-        options=WATCHLIST,
-        default=WATCHLIST[:15]
-    )
-    min_score = st.slider("Minimale Totaalscore filter:", 1.0, 10.0, 5.0, 0.5)
-    if st.button("🔄 Cache wissen & Verversen"):
-        st.cache_data.clear()
-        st.rerun()
-
-# Macro & Marktdata ophalen
-with st.spinner("Macro-indicatoren en BIST 100 data laden..."):
-    macro = get_macro_data()
-
-col1, col2, col3, col4 = st.columns(4)
-col1.metric("💱 USD/TRY Koers", f"₺{macro['usd_try']:.2f}" if macro["usd_try"] else "N/B",
-            "Devaluatie-buffer actief" if macro["dev_risk"] else "Stabiel")
-col2.metric("📈 BIST 100 (XU100)", f"{macro['xu100_price']:,.0f}" if macro["xu100_price"] else "N/B",
-            f"{macro['xu100_return']:.1f}% (3m)" if macro["xu100_return"] is not None else None)
-col3.metric("🧭 BIST 100 Trend", macro["xu100_sr"]["Trend"] if macro["xu100_sr"] else "N/B")
-col4.metric("🛡️ XU100 Steun (S1) / Weerstand (R1)",
-            f"{macro['xu100_sr']['S1']:,.0f} / {macro['xu100_sr']['R1']:,.0f}" if macro["xu100_sr"] else "N/B")
-
-st.divider()
-
-# Aandelen analyseren
-results = []
-if selected_tickers:
-    progress_bar = st.progress(0, text="Aandelen op de watchlist analyseren...")
-    for idx, t in enumerate(selected_tickers):
-        res = analyze_stock(t, macro)
-        if res and res["Totaal_Cijfer"] >= min_score:
-            results.append(res)
-        progress_bar.progress((idx + 1) / len(selected_tickers), text=f"Geanalyseerd: {t} ({idx+1}/{len(selected_tickers)})")
-    progress_bar.empty()
-
-if not results:
-    st.warning("Geen aandelen gevonden die voldoen aan de huidige selectie en filtercriteria.")
-else:
-    results = sorted(results, key=lambda x: x["Totaal_Cijfer"], reverse=True)
-    tot_points = sum(r["Totaal_Cijfer"] for r in results)
-    for r in results:
-        r["Weging (%)"] = round((r["Totaal_Cijfer"] / tot_points) * 100, 1) if tot_points > 0 else 0.0
-
-    df_overview = pd.DataFrame(results)
-
-    tab1, tab2, tab3, tab4 = st.tabs([
-        "🏆 Quant Ranglijst & Weging",
-        "📐 Steun, Weerstand & Daytrading",
-        "🔍 Diepte-analyse per Aandeel",
-        "📰 Macro & KAP Nieuwsfeed"
-    ])
-
-    with tab1:
-        st.subheader("Portefeuille Ranglijst & Scores")
-        display_cols = [
-            "Ticker", "Bedrijf", "Koers", "Totaal_Cijfer", "Tech_Cijfer",
-            "Fund_Cijfer", "Weging (%)", "RSI", "Trend", "Ret_1M (%)", "K/W (PE)", "Analist_Advies"
-        ]
-        st.dataframe(df_overview[display_cols], use_container_width=True, hide_index=True)
-
-    with tab2:
-        st.subheader("Pivot Points, Steun (S1-S3), Weerstand (R1-R3) & ATR")
-        sr_cols = [
-            "Ticker", "Koers", "Trend", "S3", "S2", "S1", "Pivot",
-            "R1", "R2", "R3", "Stop_Loss", "Doel_ATR", "Vol_Ratio"
-        ]
-        st.dataframe(df_overview[sr_cols], use_container_width=True, hide_index=True)
-
-    with tab3:
-        st.subheader("Gedetailleerde Aandeel- en KAP-inspectie")
-        chosen = st.selectbox("Kies een aandeel voor volledige onderbouwing:", [r["Ticker"] for r in results])
-        stock_detail = next(r for r in results if r["Ticker"] == chosen)
-
-        c1, c2, c3 = st.columns(3)
-        c1.metric(f"{stock_detail['Bedrijf']} ({stock_detail['Ticker']})", f"₺{stock_detail['Koers']}", f"Totaalcijfer: {stock_detail['Totaal_Cijfer']}/10")
-        c2.metric("Steun S1 / Weerstand R1", f"₺{stock_detail['S1']} / ₺{stock_detail['R1']}", f"Pivot: ₺{stock_detail['Pivot']}")
-        c3.metric("ATR Stop-Loss / Doelkoers", f"₺{stock_detail['Stop_Loss']} / ₺{stock_detail['Doel_ATR']}", f"Analist Doel: ₺{stock_detail['Analist_Doel'] or 'N/B'}")
-
-        st.info(f"**Technische relevantie:** {stock_detail['Relevantie_SR']}")
-
-        col_t, col_f = st.columns(2)
-        with col_t:
-            st.markdown(f"**📈 Technische Onderbouwing ({stock_detail['Tech_Cijfer']}/10)**")
-            for reason in stock_detail["Tech_Redenen"]:
-                st.write(f"- {reason}")
-        with col_f:
-            st.markdown(f"**🏛️ Fundamentele Onderbouwing ({stock_detail['Fund_Cijfer']}/10)**")
-            for reason in stock_detail["Fund_Redenen"]:
-                st.write(f"- {reason}")
-
-        st.markdown("**📰 Recent Bedrijfsnieuws & KAP-signalen**")
-        all_stock_news = (
-            [("🟢 Positief", n) for n in stock_detail["Pos_Nieuws"]] +
-            [("🔴 Negatief", n) for n in stock_detail["Neg_Nieuws"]] +
-            [("⚪ Te controleren", n) for n in stock_detail["Unc_Nieuws"]]
-        )
-        if all_stock_news:
-            for label, item in all_stock_news:
-                st.markdown(f"- **{label}** ({item['datum']}): [{item['titel']}]({item['link']})")
-        else:
-            st.write("Geen recente nieuwsberichten gevonden voor dit aandeel.")
-
-    with tab4:
-        st.subheader("Algemene BIST, SPK & Macro Nieuwsfeed")
-        news_df = get_news()
-        if not news_df.empty:
-            st.dataframe(news_df, use_container_width=True, hide_index=True)
-        else:
-            st.write("Kon momenteel geen RSS-nieuwsfeeds ophalen.")
+    # 1. Technische score (0-10
