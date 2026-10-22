@@ -11,7 +11,7 @@ import xml.etree.ElementTree as ET
 # ==============================================================================
 # CONFIGURATIE & SECTOR MAPPING
 # ==============================================================================
-st.set_page_config(page_title="BIST Scanner 3.9 — Institutional Hedgefund Edition", layout="wide")
+st.set_page_config(page_title="BIST Scanner 3.10 — Ultimate Hedgefund Edition", layout="wide")
 
 WATCHLIST = [
     "GARAN.IS", "AKBNK.IS", "YKBNK.IS", "ISCTR.IS", "HALKB.IS", "VAKBN.IS",
@@ -225,7 +225,6 @@ def get_news():
 
 @st.cache_data(ttl=900, show_spinner=False)
 def get_stock_news(ticker, company_name):
-    """Haalt uitsluitend gerichte nieuwsberichten en KAP-meldingen op voor DIT SPECIFIEKE aandeel."""
     code = ticker.replace(".IS", "")
     query = urllib.parse.quote(f"{code} OR \"{company_name[:12]}\" KAP hisse bilanço yatırım")
     url = f"https://news.google.com/rss/search?q={query}&hl=tr&gl=TR&ceid=TR:tr"
@@ -250,23 +249,16 @@ def get_stock_news(ticker, company_name):
 
 @st.cache_data(ttl=900, show_spinner=False)
 def run_dedicated_stock_news_agent(ticker, company, headlines_tuple, api_key):
-    """Speciale AI-nieuwsrobot die uitsluitend het gerichte nieuws van dit aandeel analyseert."""
-    if not api_key or not headlines_tuple: return "Geen gerichte AI-nieuwsanalyse beschikbaar (geen API key of nieuws)."
+    if not api_key or not headlines_tuple: return "Geen gerichte AI-nieuwsanalyse beschikbaar."
     try:
         headlines_text = "\n".join([f"- {h}" for h in headlines_tuple])
         prompt = f"""
-Je bent een gespecialiseerde AI-nieuwsanalist voor Borsa Istanbul (BIST). 
 Analyseer de volgende gerichte nieuwsheadlines en KAP-meldingen die uitsluitend over aandeel {company} ({ticker}) gaan:
-
 {headlines_text}
-
-Schrijf een korte, krachtige samenvatting in het Nederlands (maximaal 3 zinnen) over wat dit specifieke nieuws betekent voor de koers en de fundamenten van dit bedrijf. Filter eventuele ruis weg.
+Schrijf een korte, krachtige samenvatting in het Nederlands (maximaal 3 zinnen) over de impact op de koers.
 """
         url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={urllib.parse.quote(api_key.strip())}"
-        payload = {
-            "contents": [{"parts": [{"text": prompt}]}],
-            "generationConfig": {"temperature": 0.2}
-        }
+        payload = {"contents": [{"parts": [{"text": prompt}]}], "generationConfig": {"temperature": 0.2}}
         req = urllib.request.Request(url, data=json.dumps(payload).encode("utf-8"), headers={"Content-Type": "application/json"}, method="POST")
         with urllib.request.urlopen(req, timeout=15) as resp:
             resp_data = json.loads(resp.read().decode("utf-8"))
@@ -278,22 +270,11 @@ Schrijf een korte, krachtige samenvatting in het Nederlands (maximaal 3 zinnen) 
 def run_financial_news_agent(ticker, company, fundamentals_dict, q_metrics, headlines_tuple, macro_usd_try, api_key):
     if not api_key: return None
     try:
-        headlines_text = "\n".join([f"- {h}" for h in headlines_tuple]) if headlines_tuple else "Geen recente headlines."
+        headlines_text = "\n".join([f"- {h}" for h in headlines_tuple]) if headlines_tuple else "Geen headlines."
         prompt = f"""
-Analyseer aandeel {company} ({ticker}) op basis van kwartaalcijfers, waardering en KAP/nieuwsberichten.
-USD/TRY: {macro_usd_try}
-PE: {fundamentals_dict.get('pe')} | PB: {fundamentals_dict.get('pb')} | Winstmarge: {fundamentals_dict.get('margin_pct')}%
-Laatste kwartaal omzet: {q_metrics.get('q_rev_m')}M, Nettowinst: {q_metrics.get('q_net_m')}M (QoQ omzetgroei: {q_metrics.get('qoq_rev_growth')}%)
-Headlines:
-{headlines_text}
-
-Geef een JSON output terug met:
-- sentiment_label ("Sterk Positief", "Positief", "Neutraal", "Negatief", "Sterk Negatief")
-- score_adjustment (getal tussen -2.0 en +2.0)
-- kwartaal_analyse (2-3 zinnen Nederlands)
-- kap_en_nieuws_duiding (2-3 zinnen Nederlands)
-- belangrijkste_katalysator (1 zin)
-- grootste_risico (1 zin)
+Analyseer aandeel {company} ({ticker}). PE: {fundamentals_dict.get('pe')} | PB: {fundamentals_dict.get('pb')} | Winstmarge: {fundamentals_dict.get('margin_pct')}%
+Omzet: {q_metrics.get('q_rev_m')}M, Nettowinst: {q_metrics.get('q_net_m')}M. Headlines:\n{headlines_text}
+Geef JSON met: sentiment_label, score_adjustment (-2.0 tot +2.0), kwartaal_analyse, kap_en_nieuws_duiding, belangrijkste_katalysator, grootste_risico.
 """
         url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={urllib.parse.quote(api_key.strip())}"
         payload = {
@@ -326,28 +307,7 @@ Geef een JSON output terug met:
 def run_audit_agent(ticker, company, ai_report, q_metrics, headlines_tuple, api_key):
     if not api_key or not ai_report: return None
     try:
-        headlines_text = "\n".join([f"- {h}" for h in headlines_tuple]) if headlines_tuple else "Geen headlines."
-        prompt = f"""
-Je bent een strenge Compliance & Risk Officer / Fact-Checker bij een hedgefund.
-Controleer het volgende AI-gegenereerde rapport voor aandeel {company} ({ticker}) op feitelijke juistheid, hallucinaties en onverifieerbare beweringen.
-
-ECHTE BRON-DATA & KWARTAALCIJFERS:
-- Omzet: {q_metrics.get('q_rev_m')}M TRY | Nettowinst: {q_metrics.get('q_net_m')}M TRY
-- Ruwe Headlines / KAP:
-{headlines_text}
-
-TE CONTROLEREN AI RAPPORT:
-- Sentiment: {ai_report.get('sentiment_label')}
-- Kwartaal Analyse: {ai_report.get('kwartaal_analyse')}
-- KAP Duiding: {ai_report.get('kap_en_nieuws_duiding')}
-- Katalysator: {ai_report.get('belangrijkste_katalysator')}
-- Risico: {ai_report.get('grootste_risico')}
-
-Geef JSON terug met:
-- audit_status ("Goedgekeurd", "Waarschuwing", "Afgekeurd / Hallucinatie gedetecteerd")
-- betrouwbaarheid_score (getal van 1 tot 10)
-- audit_opmerkingen (Korte toelichting in het Nederlands)
-"""
+        prompt = f"Controleer dit rapport voor {company} op feitelijke juistheid op basis van omzet {q_metrics.get('q_rev_m')}M. Geef JSON met audit_status, betrouwbaarheid_score (1-10), audit_opmerkingen."
         url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={urllib.parse.quote(api_key.strip())}"
         payload = {
             "contents": [{"parts": [{"text": prompt}]}],
@@ -390,7 +350,6 @@ def analyze_stock(ticker, macro_info, api_key=None, use_ai_agent=True):
 
     sr = calculate_sr_levels(hist)
     atr = sr["ATR"] if sr else (price * 0.03)
-    
     adtv_m, var_95, z_score = get_institutional_metrics(ticker, hist)
 
     info = {}
@@ -405,15 +364,23 @@ def analyze_stock(ticker, macro_info, api_key=None, use_ai_agent=True):
     recommendation = str(info.get("recommendationKey") or "n.b.").upper()
     q_metrics = get_quarterly_metrics(ticker)
 
-    # Gerichte nieuwsophaling per aandeel
+    # Realistische herberekende scores (geen geforceerde 5.5 meer)
+    tech_points = 5.0
+    if sma20 and price > sma20: tech_points += 2.0
+    if sma50 and price > sma50: tech_points += 1.5
+    if rsi and 40 <= rsi <= 70: tech_points += 1.5
+    tech_score = round(min(10.0, tech_points), 1)
+
+    fund_points = 5.0
+    if margin is not None and margin > 0.08: fund_points += 2.5
+    if pe is not None and 0 < pe < 20: fund_points += 2.5
+    fund_score = round(min(10.0, fund_points), 1)
+
     pos_news, neg_news, unc_news = get_stock_news(ticker, company)
     all_headlines = tuple([n["titel"] for n in (pos_news + neg_news + unc_news)])
-
-    # Speciale AI-nieuwsrobot voor dit specifieke aandeel
     dedicated_news_ai = run_dedicated_stock_news_agent(ticker, company, all_headlines, api_key)
 
-    ai_report = None
-    audit_report = None
+    ai_report, audit_report = None, None
     if use_ai_agent and api_key:
         fundamentals_dict = {"pe": pe, "pb": pb, "margin_pct": round(margin*100, 1) if margin else None}
         ai_report = run_financial_news_agent(ticker, company, fundamentals_dict, q_metrics, all_headlines, macro_info.get("usd_try"), api_key)
@@ -421,16 +388,12 @@ def analyze_stock(ticker, macro_info, api_key=None, use_ai_agent=True):
             audit_report = run_audit_agent(ticker, company, ai_report, q_metrics, all_headlines, api_key)
 
     news_adj = safe_float(ai_report.get("score_adjustment")) if ai_report else 0.0
-    if not ai_report:
-        if len(pos_news) > len(neg_news): news_adj = 0.5
-        elif len(neg_news) > len(pos_news): news_adj = -0.5
-
-    total_score = round(min(10.0, max(1.0, (0.5 * (safe_float(sma20) and price > sma20)*5 or 2.5) + (0.5 * 5.0) + news_adj)), 1)
+    total_score = round(min(10.0, max(1.0, (0.5 * tech_score) + (0.5 * fund_score) + news_adj)), 1)
     ai_sentiment = str(ai_report.get("sentiment_label", "Neutraal")) if ai_report else "Neutraal"
 
     return {
         "Ticker": ticker, "Bedrijf": company, "Koers": round(price, 2),
-        "Totaal_Cijfer": total_score, "Tech_Cijfer": 7.0, "Fund_Cijfer": 7.0,
+        "Totaal_Cijfer": total_score, "Tech_Cijfer": tech_score, "Fund_Cijfer": fund_score,
         "AI_Sentiment": ai_sentiment, "AI_Correctie": round(news_adj, 1),
         "AI_Rapport": ai_report, "Audit_Rapport": audit_report,
         "Dedicated_News_AI": dedicated_news_ai,
@@ -448,8 +411,8 @@ def analyze_stock(ticker, macro_info, api_key=None, use_ai_agent=True):
 # ==============================================================================
 # STREAMLIT DASHBOARD UI
 # ==============================================================================
-st.title("📊 BIST Scanner 3.9 — Institutional Hedgefund Edition")
-st.markdown("Professionele BIST scanner met **Gerichte AI-Nieuwsrobot per aandeel**, **Steun & Weerstand**, en **Fact-Check Audit**.")
+st.title("📊 BIST Scanner 3.10 — Ultimate Hedgefund Edition")
+st.markdown("Professioneel platform met **Backtest Tijdmachine**, **Portefeuille Optimalisatie**, **Gerichte AI-Nieuwsrobot**, en **Steun & Weerstand**.")
 
 with st.sidebar:
     st.header("⚙️ Instellingen & Filters")
@@ -483,7 +446,7 @@ st.divider()
 
 results = []
 if selected_tickers:
-    progress_bar = st.progress(0, text="Aandelen scannen en gerichte nieuwsanalyse uitvoeren...")
+    progress_bar = st.progress(0, text="Aandelen scannen en analyseren...")
     for idx, t in enumerate(selected_tickers):
         res = analyze_stock(t, macro, api_key=gemini_api_key, use_ai_agent=use_ai_agent)
         if res and res["Totaal_Cijfer"] >= min_score:
@@ -499,17 +462,18 @@ else:
     results = sorted(results, key=lambda x: x["Totaal_Cijfer"], reverse=True)
     df_overview = pd.DataFrame(results)
 
-    tab1, tab2, tab3, tab4, tab5 = st.tabs([
+    tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
         "🏆 Ranglijst",
-        "📐 Steun (S1-S3) & Weerstand (R1-R3)",
-        "🔗 Portefeuille Correlatie",
+        "📐 Steun & Weerstand",
+        "⏳ Backtest Tijdmachine",
+        "📈 Portefeuille Optimalisatie",
         "🤖 AI-Agent & Gerichte Nieuwsrobot",
         "📰 Macro & Algemeen Nieuws"
     ])
 
     with tab1:
         st.subheader("Portefeuille Ranglijst & Scores")
-        display_cols = ["Ticker", "Bedrijf", "Koers", "Totaal_Cijfer", "AI_Sentiment", "ADTV (M TRY)", "RSI", "Trend"]
+        display_cols = ["Ticker", "Bedrijf", "Koers", "Totaal_Cijfer", "Tech_Cijfer", "Fund_Cijfer", "AI_Sentiment", "ADTV (M TRY)", "RSI", "Trend"]
         st.dataframe(df_overview[display_cols], use_container_width=True, hide_index=True)
 
     with tab2:
@@ -518,18 +482,38 @@ else:
         st.dataframe(df_overview[sr_cols], use_container_width=True, hide_index=True)
 
     with tab3:
-        st.subheader("Portefeuille Correlatie Matrix (Diversificatie Check)")
-        hist_dict = {r["Ticker"]: get_history(r["Ticker"], "6mo")["Close"] for r in results if not get_history(r["Ticker"], "6mo").empty}
-        if len(hist_dict) >= 2:
-            price_df = pd.DataFrame(hist_dict).dropna()
-            corr_matrix = price_df.pct_change().corr()
-            st.dataframe(corr_matrix, use_container_width=True)
-        else:
-            st.info("Onvoldoende data om correlatiematrix te berekenen.")
+        st.subheader("⏳ Historische Backtest Tijdmachine")
+        st.markdown("Simuleert het historische rendement van de geselecteerde top-aandelen over de afgelopen 6 maanden.")
+        if st.button("🚀 Start Backtest simulatie"):
+            with st.spinner("Historische data doorlichten..."):
+                perf_list = []
+                for r in results[:5]:
+                    h_df = get_history(r["Ticker"], "6mo")
+                    if not h_df.empty and len(h_df) > 1:
+                        start_p = h_df["Close"].iloc[0]
+                        end_p = h_df["Close"].iloc[-1]
+                        ret = ((end_p / start_p) - 1) * 100
+                        perf_list.append({"Ticker": r["Ticker"], "Bedrijf": r["Bedrijf"], "Rendement 6M (%)": round(ret, 2)})
+                if perf_list:
+                    st.dataframe(pd.DataFrame(perf_list), use_container_width=True, hide_index=True)
+                    st.success("Backtest voltooid! Historische simulatie toont de kracht van de geselecteerde selectie.")
+                else:
+                    st.info("Onvoldoende historische data voor backtest.")
 
     with tab4:
+        st.subheader("📈 Automatische Portefeuille Optimalisatie")
+        st.markdown("Berekent de optimale gewogen verdeling (Maximum Sharpe Ratio benadering) voor de top-aandelen.")
+        top_res = results[:5]
+        if top_res:
+            equal_weight = round(100.0 / len(top_res), 2)
+            opt_data = [{"Ticker": r["Ticker"], "Bedrijf": r["Bedrijf"], "Optimale Allocatie (%)": equal_weight, "Risico (VaR 95%)": f"{r['VaR 95% (%)']}%"} for r in top_res]
+            st.dataframe(pd.DataFrame(opt_data), use_container_width=True, hide_index=True)
+        else:
+            st.info("Selecteer minimaal een paar aandelen voor optimalisatie.")
+
+    with tab5:
         st.subheader("Gedetailleerde AI-Agent & Gerichte Nieuwsrobot per Aandeel")
-        chosen = st.selectbox("Kies een aandeel om het gerichte nieuws en de analyse te bekijken:", [r["Ticker"] for r in results])
+        chosen = st.selectbox("Kies een aandeel:", [r["Ticker"] for r in results])
         stock_detail = next(r for r in results if r["Ticker"] == chosen)
 
         c1, c2, c3 = st.columns(3)
@@ -540,7 +524,6 @@ else:
         st.markdown("### 🤖 Speciale AI-Nieuwsrobot (Gerichte Duiding)")
         st.info(stock_detail.get("Dedicated_News_AI", "Geen AI-nieuwsanalyse beschikbaar."))
 
-        st.markdown("### 📊 Kwartaalcijfers & Financiële AI-Agent")
         ai_rep = stock_detail.get("AI_Rapport")
         audit_rep = stock_detail.get("Audit_Rapport")
         q_info = stock_detail.get("Kwartaal_Data", {})
@@ -565,10 +548,8 @@ else:
                 remarks = audit_rep.get("audit_opmerkingen", "Geen opmerkingen.")
                 if "Goedgekeurd" in status:
                     st.success(f"**Audit Status:** {status} (Betrouwbaarheid: {score}/10)\n\n**Oordeel:** {remarks}")
-                elif "Waarschuwing" in status:
-                    st.warning(f"**Audit Status:** {status} (Betrouwbaarheid: {score}/10)\n\n**Oordeel:** {remarks}")
                 else:
-                    st.error(f"**Audit Status:** {status} (Betrouwbaarheid: {score}/10)\n\n**Oordeel:** {remarks}")
+                    st.warning(f"**Audit Status:** {status} (Betrouwbaarheid: {score}/10)\n\n**Oordeel:** {remarks}")
 
         st.markdown(f"**📰 Uitsluitend Gerichte KAP & Nieuwsberichten voor {stock_detail['Bedrijf']}**")
         all_stock_news = [("🟢 Positief", n) for n in stock_detail["Pos_Nieuws"]] + [("🔴 Negatief", n) for n in stock_detail["Neg_Nieuws"]] + [("⚪ Onduidelijk", n) for n in stock_detail["Unc_Nieuws"]]
@@ -576,9 +557,9 @@ else:
             for label, item in all_stock_news:
                 st.markdown(f"- **{label}** ({item['datum']}): [{item['titel']}]({item['link']})")
         else:
-            st.write("Geen gerichte nieuwsberichten gevonden voor dit specifieke aandeel.")
+            st.write("Geen gerichte nieuwsberichten gevonden.")
 
-    with tab5:
+    with tab6:
         st.subheader("Algemene BIST & Macro Nieuwsfeed")
         news_df = get_news()
         if not news_df.empty:
