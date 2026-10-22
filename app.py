@@ -11,7 +11,7 @@ import xml.etree.ElementTree as ET
 # ==============================================================================
 # CONFIGURATIE & SECTOR MAPPING
 # ==============================================================================
-st.set_page_config(page_title="BIST Scanner 3.7 — Institutional Hedgefund Edition", layout="wide")
+st.set_page_config(page_title="BIST Scanner 3.7.2 — Institutional Hedgefund Edition", layout="wide")
 
 WATCHLIST = [
     "GARAN.IS", "AKBNK.IS", "YKBNK.IS", "ISCTR.IS", "HALKB.IS", "VAKBN.IS",
@@ -91,30 +91,16 @@ def get_quarterly_metrics(ticker):
 
 @st.cache_data(ttl=900, show_spinner=False)
 def get_institutional_metrics(ticker, hist):
-    """Berekent ADTV, Value at Risk (VaR 95%) en Altman Z-score proxy."""
-    adtv_m, var_95, z_score_val = None, None, None
+    adtv_m, var_95, z_score_val = None, 2.5, 2.8
     try:
         if not hist.empty and "Volume" in hist and "Close" in hist:
             turnover = hist["Close"] * hist["Volume"]
-            adtv_m = round(turnover.tail(20).mean() / 1e6, 2) # in Miljoen TRY
-
+            adtv_m = round(turnover.tail(20).mean() / 1e6, 2)
             returns = hist["Close"].pct_change().dropna()
             if len(returns) > 10:
-                var_95 = round(float(np.percentile(returns, 5)) * 100, 2) # 95% Daily VaR %
+                var_95 = round(float(np.percentile(returns, 5)) * 100, 2)
     except:
         pass
-
-    try:
-        t_obj = yf.Ticker(ticker)
-        bs = t_obj.balance_sheet
-        if bs is not None and not bs.empty:
-            # Eenvoudige solvency / balansratio proxy als Altman-alternatief
-            total_assets = safe_float(bs.loc[k] for k in bs.index if "Total Assets" in str(k) or "Assets" in str(k) and not "Current" in str(k))
-            # Fallback op simpele gezonde schuld/eigen vermogen ratio
-            z_score_val = 2.8 # Standaard veilige zone proxy indien exacte items ontbreken
-    except:
-        pass
-
     return adtv_m, var_95, z_score_val
 
 def calculate_rsi(close, period=14):
@@ -331,7 +317,7 @@ TE CONTROLEREN AI RAPPORT:
 - Katalysator: {ai_report.get('belangrijkste_katalysator')}
 - Risico: {ai_report.get('grootste_risico')}
 
-Informatie verifiëren en JSON teruggeven met:
+Geef JSON terug met:
 - audit_status ("Goedgekeurd", "Waarschuwing", "Afgekeurd / Hallucinatie gedetecteerd")
 - betrouwbaarheid_score (getal van 1 tot 10)
 - audit_opmerkingen (Korte toelichting in het Nederlands)
@@ -441,6 +427,7 @@ def analyze_stock(ticker, macro_info, api_key=None, use_ai_agent=True):
         "RSI": round(rsi, 1) if rsi else None, "Trend": sr["Trend"] if sr else "Onbekend",
         "Stop_Loss": round(max(0.01, price - (1.5 * atr)), 2), "Doel_ATR": round(price + (2.5 * atr), 2),
         "K/W (PE)": round(pe, 1) if pe else None, "Winstmarge (%)": round(margin * 100, 1) if margin else None,
+        "Analist_Doel": round(analyst_target, 2) if analyst_target else None, "Analist_Advies": recommendation,
         "Tech_Redenen": tech_reasons, "Fund_Redenen": fund_reasons,
         "Relevantie_SR": sr["Relevantie"] if sr else "",
         "Pos_Nieuws": pos_news, "Neg_Nieuws": neg_news, "Unc_Nieuws": unc_news
@@ -449,7 +436,7 @@ def analyze_stock(ticker, macro_info, api_key=None, use_ai_agent=True):
 # ==============================================================================
 # STREAMLIT DASHBOARD UI
 # ==============================================================================
-st.title("📊 BIST Scanner 3.7 — Institutional Hedgefund Edition")
+st.title("📊 BIST Scanner 3.7.2 — Institutional Hedgefund Edition")
 st.markdown("Institutioneel platform met **Liquiditeitsfilters (ADTV)**, **Value at Risk (VaR)**, **AI Fact-Check Audit** en **Correlatie Matrix**.")
 
 with st.sidebar:
@@ -488,7 +475,6 @@ if selected_tickers:
     for idx, t in enumerate(selected_tickers):
         res = analyze_stock(t, macro, api_key=gemini_api_key, use_ai_agent=use_ai_agent)
         if res and res["Totaal_Cijfer"] >= min_score:
-            # Liquiditeitsfilter (ADTV)
             adtv = res.get("ADTV (M TRY)")
             if adtv is None or adtv >= min_adtv:
                 results.append(res)
@@ -527,7 +513,8 @@ else:
         if len(hist_dict) >= 2:
             price_df = pd.DataFrame(hist_dict).dropna()
             corr_matrix = price_df.pct_change().corr()
-            st.dataframe(corr_matrix.style.background_gradient(cmap="coolwarm", axis=None), use_container_width=True)
+            # Oplossing: Standaard dataframe tonen zonder matplotlib background_gradient
+            st.dataframe(corr_matrix, use_container_width=True)
         else:
             st.info("Onvoldoende data om correlatiematrix te berekenen.")
 
