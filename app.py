@@ -176,13 +176,19 @@ def calculate_sr_levels(hist):
 
 @st.cache_data(ttl=900, show_spinner=False)
 def get_macro_data():
-    output = {"usd_try": None, "dev_risk": False, "xu100_return": None, "xu100_price": None, "xu100_sr": None}
+    output = {"usd_try": None, "eur_try": None, "dev_risk": False, "xu100_return": None, "xu100_price": None, "xu100_sr": None}
     try:
         fx = get_history("USDTRY=X", "1mo")
         if not fx.empty:
             val = safe_float(fx["Close"].iloc[-1])
             output["usd_try"] = val
             if val is not None and val > 48.0: output["dev_risk"] = True
+    except:
+        pass
+    try:
+        fx_eur = get_history("EURTRY=X", "1mo")
+        if not fx_eur.empty:
+            output["eur_try"] = safe_float(fx_eur["Close"].iloc[-1])
     except:
         pass
     try:
@@ -452,7 +458,6 @@ def analyze_stock(ticker, macro_info, api_key=None, use_ai_agent=True):
         total_score = round(min(10.0, max(1.0, (0.5 * tech_score) + (0.5 * fund_score) + news_adj)), 1)
         ai_sentiment = str(ai_report.get("sentiment_label", "Neutraal")) if ai_report else "Neutraal"
 
-        # Signalering voor tabel
         news_signal_text = "Negatief / Onderzoek" if neg_news else ("Positief" if pos_news else "Neutraal")
 
         return {
@@ -476,7 +481,7 @@ def analyze_stock(ticker, macro_info, api_key=None, use_ai_agent=True):
         return None
 
 # ==============================================================================
-# STREAMLIT COMMAND CENTER UI (MET DAYTRADING TAB & SIGNALERING IN TABEL)
+# STREAMLIT COMMAND CENTER UI
 # ==============================================================================
 st.title("📊 BIST Scanner 5.2 — Ultimate Command Center")
 st.markdown("Professioneel aandelenplatform met **Live Signalen in Tabel**, **Daytrading Niveaus (S1-S3, R1-R3)** en **8 Autonome AI-Robots**.")
@@ -504,12 +509,13 @@ with st.sidebar:
 with st.spinner("Macro-indicatoren laden..."):
     macro = get_macro_data()
 
-# 1. De "Top-Down" Macro Bar (Bovenaan)
-col1, col2, col3, col4 = st.columns(4)
+# 1. De "Top-Down" Macro Bar (Bovenaan - inclusief EUR/TRY)
+col1, col2, col3, col4, col5 = st.columns(5)
 col1.metric("💱 USD/TRY Koers", f"₺{macro['usd_try']:.2f}" if macro["usd_try"] else "N/B", "Devaluatie-buffer actief" if macro["dev_risk"] else "Stabiel")
-col2.metric("📈 BIST 100 (XU100)", f"{macro['xu100_price']:,.0f}" if macro["xu100_price"] else "N/B", f"{macro['xu100_return']:.1f}% (3m)" if macro["xu100_return"] is not None else None)
-col3.metric("🧭 BIST 100 Trend", macro["xu100_sr"]["Trend"] if macro["xu100_sr"] else "N/B")
-col4.metric("🛡️ XU100 S1 / R1", f"{macro['xu100_sr']['S1']:,.0f} / {macro['xu100_sr']['R1']:,.0f}" if macro["xu100_sr"] else "N/B")
+col2.metric("💶 EUR/TRY Koers", f"₺{macro['eur_try']:.2f}" if macro["eur_try"] else "N/B")
+col3.metric("📈 BIST 100 (XU100)", f"{macro['xu100_price']:,.0f}" if macro["xu100_price"] else "N/B", f"{macro['xu100_return']:.1f}% (3m)" if macro["xu100_return"] is not None else None)
+col4.metric("🧭 BIST 100 Trend", macro["xu100_sr"]["Trend"] if macro["xu100_sr"] else "N/B")
+col5.metric("🛡️ XU100 S1 / R1", f"{macro['xu100_sr']['S1']:,.0f} / {macro['xu100_sr']['R1']:,.0f}" if macro["xu100_sr"] else "N/B")
 
 st.divider()
 
@@ -540,7 +546,6 @@ if not results:
 else:
     df_overview = pd.DataFrame(results)
 
-    # Organisatie in schone tabs: Hoofdpagina (Command Center) + Apart Daytrading Tabblad
     tab_main, tab_daytrade, tab_backtest, tab_opt, tab_macro = st.tabs([
         "📊 Command Center & Signalen",
         "📐 Daytrading & Steun/Weerstand (S1-S3, R1-R3)",
@@ -550,7 +555,6 @@ else:
     ])
 
     with tab_main:
-        # 2. De "Top 3 Kansen" Hero Section
         st.subheader("🔥 Top 3 Kansen van de Dag")
         top_3 = results[:3]
         h_cols = st.columns(len(top_3))
@@ -561,14 +565,12 @@ else:
 
         st.divider()
 
-        # 3. Uitgebreide Hoofdtabel met directe signalen (Buyback, Nieuws, Sentiment)
         st.subheader("📋 Uitgebreide Hoofdranglijst & Live Signalen")
         display_cols = ["Ticker", "Bedrijf", "Sector", "Koers", "Totaal_Cijfer", "News_Signal", "Buyback_Status", "ADTV (M TRY)", "VaR 95% (%)", "RSI", "Trend"]
         st.dataframe(df_overview[display_cols], use_container_width=True, hide_index=True)
 
         st.divider()
 
-        # 4. Master-Detail Accordion: Diepgaande inspectie per aandeel
         st.subheader("🔍 Diepgaande Inspectie per Aandeel (8 AI-Robots)")
         chosen = st.selectbox("Selecteer een aandeel om alle agent-analyses en rentesimulaties te openen:", [r["Ticker"] for r in results])
         stock_detail = next(r for r in results if r["Ticker"] == chosen)
