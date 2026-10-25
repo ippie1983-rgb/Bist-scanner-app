@@ -5,30 +5,32 @@ import numpy as np
 import urllib.request
 import urllib.parse
 import xml.etree.ElementTree as ET
-from datetime import datetime
+from datetime import datetime, timedelta
 
 # =====================================================================
-# BIST SCANNER ULTIMATE 5.2 / 5.7 — 8-AGENT COMMAND CENTER (FULL ~950 LINES)
+# BIST SCANNER ULTIMATE 5.x — ENTERPRISE MULTI-TAB COMMAND CENTER
+# ARCHITECTUUR: 8 VOLLEDIG UITGESCHREVEN AUTONOME AI-AGENTS & QUANT SUITE
 # =====================================================================
 
 st.set_page_config(
-    page_title="BIST Scanner Ultimate 5.x Command Center",
+    page_title="BIST Scanner Ultimate 5.x Enterprise Command Center",
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
-# --- 1. CONFIGURATIE & WATCHLIST ---
+# --- 1. CONFIGURATIE & UITGEBREIDE WATCHLIST ---
 WATCHLIST = [
     "GARAN.IS", "AKBNK.IS", "YKBNK.IS", "ISCTR.IS", "HALKB.IS", "VAKBN.IS",
     "EREGL.IS", "KRDMD.IS", "THYAO.IS", "PGSUS.IS", "TAVHL.IS",
     "TUPRS.IS", "PETKM.IS", "SISE.IS", "KCHOL.IS", "SAHOL.IS", "BIMAS.IS",
     "MGROS.IS", "TCELL.IS", "TTKOM.IS", "ASELS.IS", "FROTO.IS", "TOASO.IS",
     "ENKAI.IS", "ARCLK.IS", "TTRAK.IS", "AEFES.IS", "ULKER.IS", "DOAS.IS",
-    "EKGYO.IS", "ODAS.IS", "HEKTS.IS", "SASAH.IS"
+    "EKGYO.IS", "ODAS.IS", "HEKTS.IS", "SASAH.IS", "KOZAA.IS", "KRDMA.IS",
+    "PETUN.IS", "PINSU.IS", "MAVI.IS", "BJKAS.IS", "GSRAY.IS", "TSPOR.IS"
 ]
 
 NEWS_URLS = [
-    ("Google Nieuws — Turkije economie", "https://news.google.com/rss/search?q=Turkije+ekonomi+Borsa+Istanbul&hl=tr&gl=TR&ceid=TR:tr"),
+    ("Google Nieuws — Turkije economie", "https://news.google.com/rss/search?q=Turkiye+ekonomi+Borsa+Istanbul&hl=tr&gl=TR&ceid=TR:tr"),
     ("Google Nieuws — SPK en fondsen", "https://news.google.com/rss/search?q=SPK+fon+borsa+inceleme&hl=tr&gl=TR&ceid=TR:tr"),
     ("Google Nieuws — KAP & Bedrijfsresultaten", "https://news.google.com/rss/search?q=BIST+KAP+sirket+bilanco+kar+zarar&hl=tr&gl=TR&ceid=TR:tr"),
     ("Google Nieuws — Geopolitiek & Olie (NL)", "https://news.google.com/rss/search?q=Turkije+economie+geopolitiek+olie&hl=nl&gl=NL&ceid=NL:nl"),
@@ -46,7 +48,28 @@ NEGATIVE_KEYWORDS = [
     "verlies", "boete", "onderzoek", "schuld", "winstwaarschuwing", "sanctie", "oorlog"
 ]
 
-# --- 2. CORE UTILITIES & DATA FETCHING ---
+# --- 2. FORMATTERING & HULPFUNCTIES (STRICT GEEN AFKORTINGEN) ---
+
+def format_full_number(val, decimals=2, currency="₺"):
+    """Formatteert getallen volledig met duizendtalscheidingen en exacte decimalen."""
+    if val is None or not np.isfinite(val):
+        return "N.B."
+    if decimals == 0:
+        return f"{currency}{val:,.0f}".replace(",", ".")
+    elif decimals == 1:
+        s = f"{val:,.1f}"
+        parts = s.split(".")
+        return f"{currency}{parts[0].replace(',', '.')},{parts[1]}"
+    else:
+        s = f"{val:,.2f}"
+        parts = s.split(".")
+        return f"{currency}{parts[0].replace(',', '.')},{parts[1]}"
+
+def format_volume_full(val):
+    """Formatteert volumes volledig zonder K of M afkortingen."""
+    if val is None or not np.isfinite(val):
+        return "N.B."
+    return f"{val:,.0f}".replace(",", ".")
 
 def safe_float(value):
     try:
@@ -135,16 +158,6 @@ def calculate_sr_levels(hist):
     atr = safe_float(tr.rolling(14).mean().iloc[-1]) or (price * 0.03)
     atr_pct = (atr / price) * 100.0 if price > 0 else 0.0
 
-    rel_parts = [f"Trend: {trend}"]
-    if vol_ratio is not None:
-        if vol_ratio >= 1.3:
-            rel_parts.append(f"Hoog volume ({vol_ratio:.2f}x gem.)")
-        elif vol_ratio <= 0.7:
-            rel_parts.append(f"Laag volume ({vol_ratio:.2f}x gem.)")
-        else:
-            rel_parts.append(f"Normaal volume ({vol_ratio:.2f}x gem.)")
-    rel_parts.append(f"Volatiliteit (ATR): {atr_pct:.1f}%")
-
     return {
         "Pivot": round(pivot, 2),
         "R1": round(r1, 2),
@@ -157,7 +170,7 @@ def calculate_sr_levels(hist):
         "Vol_Ratio": round(vol_ratio, 2) if vol_ratio is not None else None,
         "ATR": round(atr, 2),
         "ATR_Pct": round(atr_pct, 2),
-        "Relevantie": " · ".join(rel_parts)
+        "Relevantie": f"Trend: {trend} · Volume: {vol_ratio:.2f}x · ATR: {atr_pct:.1f}%" if vol_ratio else f"Trend: {trend} · ATR: {atr_pct:.1f}%"
     }
 
 @st.cache_data(ttl=900, show_spinner=False)
@@ -229,7 +242,7 @@ def get_news():
             continue
     if not items:
         return pd.DataFrame(columns=["Bron", "Signaal", "Titel", "Datum", "Link"])
-    return pd.DataFrame(items).drop_duplicates(subset=["Titel"]).head(35)
+    return pd.DataFrame(items).drop_duplicates(subset=["Titel"]).head(40)
 
 @st.cache_data(ttl=900, show_spinner=False)
 def get_stock_news(ticker, company_name):
@@ -258,123 +271,199 @@ def get_stock_news(ticker, company_name):
         pass
     return pos_list, neg_list, unc_list
 
-# --- 3. AGENT MODULES (8 AUTONOME AI ROBOTS) ---
 
-def agent_1_quant_technical(close, high, low, volume, price):
-    """Agent 1: Technische Quant & Momentum Analyse"""
+# =====================================================================
+# DE 8 VOLLEDIG UITGESCHREVEN AUTONOME AI-AGENTS (ENTERPRISE LOGICA)
+# =====================================================================
+
+def agent_1_quant_technical_analysis(close, high, low, volume, price):
+    """Agent 1: Technische Quant, SMA20/50, RSI, MACD en Momentum Analyse"""
     sma20 = safe_float(close.rolling(20).mean().iloc[-1])
     sma50 = safe_float(close.rolling(50).mean().iloc[-1])
     rsi = safe_float(calculate_rsi(close).iloc[-1])
     
+    ema12 = close.ewm(span=12, adjust=False).mean()
+    ema26 = close.ewm(span=26, adjust=False).mean()
+    macd = safe_float((ema12 - ema26).iloc[-1])
+    signal = safe_float(((ema12 - ema26).ewm(span=9, adjust=False).mean()).iloc[-1])
+
     points = 0.0
     reasons = []
+    
     if sma20 and price > sma20:
-        points += 2.5
-        reasons.append("Koers boven SMA20")
+        points += 2.0
+        reasons.append(f"Koers ({format_full_number(price, 2)}) noteert boven SMA20 ({format_full_number(sma20, 2)})")
+    else:
+        reasons.append("Koers noteert onder SMA20")
+        
     if sma50 and price > sma50:
-        points += 2.5
-        reasons.append("Koers boven SMA50")
-    if rsi:
+        points += 2.0
+        reasons.append(f"Koers ({format_full_number(price, 2)}) noteert boven SMA50 ({format_full_number(sma50, 2)})")
+    else:
+        reasons.append("Koers noteert onder SMA50")
+        
+    if rsi is not None:
         if 45 <= rsi <= 65:
-            points += 3.0
-            reasons.append(f"RSI neutraal/sterk ({rsi:.1f})")
-        elif rsi < 30:
+            points += 2.5
+            reasons.append(f"RSI bevindt zich in gezonde zone ({rsi:.1f})")
+        elif 30 <= rsi < 45:
             points += 1.5
+            reasons.append(f"RSI in herstelzone ({rsi:.1f})")
+        elif rsi < 30:
+            points += 1.0
             reasons.append(f"RSI oversold ({rsi:.1f})")
         else:
-            reasons.append(f"RSI zone ({rsi:.1f})")
-    return round(min(10.0, points), 1), reasons
+            reasons.append(f"RSI oververhit ({rsi:.1f})")
 
-def agent_2_fundamental_valuation(info):
-    """Agent 2: Fundamentele Waardering & P/E / P/B Agent"""
+    if macd is not None and signal is not None:
+        if macd > signal:
+            points += 1.5
+            reasons.append("MACD signaal is bullish gekruist")
+        else:
+            reasons.append("MACD signaal is bearish")
+            
+    score = round(min(10.0, points), 1)
+    return score, reasons, rsi
+
+def agent_2_fundamental_valuation_agent(info):
+    """Agent 2: Fundamentele Waardering, P/E (FK), P/B (PD/DD), Winstmarge & Omzetgroei"""
     pe = safe_float(info.get("trailingPE"))
     pb = safe_float(info.get("priceToBook"))
     margin = safe_float(info.get("profitMargins"))
+    revenue_growth = safe_float(info.get("revenueGrowth"))
     
     points = 0.0
     max_pts = 0.0
     reasons = []
-    if pe and pe > 0:
-        max_pts += 3.5
-        if pe < 12:
-            points += 3.5
-            reasons.append(f"Aantrekkelijke P/E ({pe:.1f})")
-        elif pe < 20:
-            points += 2.0
-            reasons.append(f"Redelijke P/E ({pe:.1f})")
-        else:
-            reasons.append(f"Hoge P/E ({pe:.1f})")
-    if pb and pb > 0:
-        max_pts += 3.5
-        if pb < 1.5:
-            points += 3.5
-            reasons.append(f"Lage P/B ({pb:.1f})")
-        elif pb < 3.0:
-            points += 2.0
-            reasons.append(f"Gemiddelde P/B ({pb:.1f})")
-        else:
-            reasons.append(f"Hoge P/B ({pb:.1f})")
-    if margin is not None:
+    
+    if pe is not None and pe > 0:
         max_pts += 3.0
-        if margin > 0.10:
+        if pe < 10:
             points += 3.0
-            reasons.append(f"Hoge winstmarge ({margin*100:.1f}%)")
-        elif margin > 0:
-            points += 1.5
-            reasons.append("Positieve winstmarge")
+            reasons.append(f"Zeer aantrekkelijke P/E koers-winstverhouding van {pe:.2f}")
+        elif pe < 20:
+            points += 1.8
+            reasons.append(f"Redelijke P/E koers-winstverhouding van {pe:.2f}")
         else:
-            reasons.append("Negatieve winstmarge")
+            reasons.append(f"Hoge P/E koers-winstverhouding van {pe:.2f}")
             
+    if pb is not None and pb > 0:
+        max_pts += 3.0
+        if pb < 1.5:
+            points += 3.0
+            reasons.append(f"Lage P/B koers-boekwaardeverhouding van {pb:.2f}")
+        elif pb < 3.0:
+            points += 1.8
+            reasons.append(f"Gemiddelde P/B koers-boekwaardeverhouding van {pb:.2f}")
+        else:
+            reasons.append(f"Hoge P/B koers-boekwaardeverhouding van {pb:.2f}")
+            
+    if margin is not None:
+        max_pts += 2.0
+        if margin > 0.10:
+            points += 2.0
+            reasons.append(f"Uitstekende winstmarge van {margin*100:.2f}%")
+        elif margin > 0:
+            points += 1.0
+            reasons.append(f"Positieve winstmarge van {margin*100:.2f}%")
+        else:
+            reasons.append("Negatieve winstmarge (verlieslatend)")
+            
+    if revenue_growth is not None:
+        max_pts += 2.0
+        if revenue_growth > 0.10:
+            points += 2.0
+            reasons.append(f"Sterke omzetgroei j-o-j van {revenue_growth*100:.2f}%")
+        elif revenue_growth > 0:
+            points += 1.0
+            reasons.append(f"Positieve omzetgroei van {revenue_growth*100:.2f}%")
+        else:
+            reasons.append("Krimpende omzet")
+
     score = round((points / max_pts) * 10.0, 1) if max_pts > 0 else None
-    return score, reasons, pe, pb, margin
+    return score, reasons, pe, pb, margin, revenue_growth
 
-def agent_3_kap_news_monitor(ticker, company):
-    """Agent 3: KAP & Bedrijfsnieuws Scanner Agent"""
+def agent_3_kap_news_intelligence_agent(ticker, company):
+    """Agent 3: KAP & Bedrijfsnieuws Klassificatie Agent"""
     pos, neg, unc = get_stock_news(ticker, company)
-    adj = 0.5 if len(pos) > len(neg) else (-0.7 if len(neg) > len(pos) else 0.0)
-    return pos, neg, unc, adj
+    adjustment = 0.0
+    if len(pos) > len(neg):
+        adjustment = 0.5
+    elif len(neg) > len(pos):
+        adjustment = -0.7
+    return pos, neg, unc, adjustment
 
-def agent_4_macro_currency_risk(macro_info, ticker):
-    """Agent 4: Macro & Valuta Devaluatie-Buffer Agent"""
+def agent_4_macro_currency_risk_agent(macro_info, ticker):
+    """Agent 4: Macro & Valuta Devaluatie-Buffer Agent (USD/TRY)"""
     dev_active = macro_info.get("dev_risk", False)
-    is_hard_currency = ticker in ["THYAO.IS", "EREGL.IS", "SISE.IS", "TUPRS.IS", "FROTO.IS", "ASELS.IS"]
-    if dev_active and is_hard_currency:
-        return 1.0, "Valutabuffer actief (harde valuta / export)"
-    return 0.0, "Geen speciale devaluatie-buffer"
+    hard_currency_stocks = ["THYAO.IS", "EREGL.IS", "SISE.IS", "TUPRS.IS", "FROTO.IS", "ASELS.IS"]
+    if dev_active and ticker in hard_currency_stocks:
+        return 1.0, "Valutabuffer actief: exporteur / harde valuta bescherming tegen devaluatie"
+    return 0.0, "Geen specifieke valutabuffer gedetecteerd voor dit aandeel"
 
-def agent_5_debt_interest_model(info):
-    """Agent 5: Schuld & Rentelasten Model Agent"""
+def agent_5_debt_interest_model_agent(info):
+    """Agent 5: Schuldposities & Rentelasten Analyse Agent"""
     debt_to_equity = safe_float(info.get("debtToEquity"))
+    current_ratio = safe_float(info.get("currentRatio"))
+    
+    points = 0.0
+    reasons = []
     if debt_to_equity is not None:
         if debt_to_equity < 50:
-            return 1.0, f"Gezonde schuldenratio ({debt_to_equity:.1f}%)"
+            points += 1.0
+            reasons.append(f"Gezonde schuldenstructuur (Debt/Equity: {debt_to_equity:.2f}%)")
         elif debt_to_equity < 120:
-            return 0.0, f"Gemiddelde schuldenratio ({debt_to_equity:.1f}%)"
+            reasons.append(f"Gemiddelde schuldenstructuur (Debt/Equity: {debt_to_equity:.2f}%)")
         else:
-            return -1.0, f"Hoge schuldenratio ({debt_to_equity:.1f}% - renterisico)"
-    return 0.0, "Geen schulddata beschikbaar"
+            points -= 1.5
+            reasons.append(f"Hoge schuldenlast (Debt/Equity: {debt_to_equity:.2f}% — renterisico)")
+    else:
+        reasons.append("Geen schuldgegevens gerapporteerd")
+        
+    if current_ratio is not None:
+        if current_ratio > 1.5:
+            points += 0.5
+            reasons.append(f"Solvabiliteit / Current Ratio sterk ({current_ratio:.2f})")
+        elif current_ratio < 1.0:
+            points -= 0.5
+            reasons.append(f"Lage Current Ratio ({current_ratio:.2f} — liquiditeitsrisico)")
+            
+    return points, "; ".join(reasons)
 
-def agent_6_insider_buyback_tracker(info):
-    """Agent 6: Inkoop / Insider Actie Agent"""
+def agent_6_insider_buyback_tracker_agent(info):
+    """Agent 6: Aandeleninkoop & Insider Transactie Structuur Agent"""
     shares_out = safe_float(info.get("sharesOutstanding"))
-    return 0.5 if shares_out else 0.0, "Standaard aandelenstructuur geverifieerd"
+    float_shares = safe_float(info.get("floatShares"))
+    reasons = []
+    adj = 0.0
+    if shares_out and float_shares:
+        free_float_pct = (float_shares / shares_out) * 100.0
+        reasons.append(f"Vrije omloop (Free Float): {free_float_pct:.2f}%")
+        if free_float_pct < 35:
+            adj += 0.3
+            reasons.append("Lage free float (sterkere prijsgevoeligheid bij inkoop/vraag)")
+    else:
+        reasons.append("Standaard aandelenstructuur geverifieerd")
+    return adj, "; ".join(reasons)
 
-def agent_7_risk_auditor(tech_score, fund_score):
-    """Agent 7: Risico-Auditor & Setup Classificatie"""
-    if fund_score is not None and fund_score >= 6.0 and tech_score < 5.0:
-        return "Mogelijk koopwaardige herstelkans"
-    elif fund_score is not None and fund_score < 4.0:
-        return "Opgelet: Zwakke fundamentals"
-    elif tech_score >= 7.0:
-        return "Sterke trend & momentum"
-    return "Neutraal / Volgen"
+def agent_7_risk_auditor_agent(tech_score, fund_score, pos_news_len, neg_news_len):
+    """Agent 7: Risico-Auditor & Setup Classificatie Agent"""
+    if fund_score is not None and fund_score >= 6.0 and tech_score < 5.0 and neg_news_len == 0:
+        return "Mogelijk koopwaardige herstelkans (fundamenteel sterk, technisch oververkocht)"
+    elif (fund_score is not None and fund_score < 4.0) or neg_news_len > pos_news_len:
+        return "Opgelet: Zwakke fundamentals / Negatief nieuws gedetecteerd"
+    elif tech_score >= 7.0 and (fund_score is None or fund_score >= 5.5):
+        return "Sterke trend & solide momentum"
+    else:
+        return "Neutraal / Wacht op bevestiging"
 
-def agent_8_telegram_alert_simulator(score, ticker):
-    """Agent 8: Telegram & Signaal Alert Agent"""
+def agent_8_telegram_alert_simulator_agent(score, ticker, setup_type):
+    """Agent 8: Geautomatiseerde Signaal- & Telegram Alert Agent"""
     if score >= 7.5:
-        return f"🚨 [BIST ALERT] {ticker} scoort hoog: {score}/10!"
+        return f"🚨 [BIST 5.x ALERT] {ticker} vertoont een sterke setup ({setup_type}) met een totaalscore van {score}/10!"
     return None
 
+# Hoofdfunctie die alle 8 agents samenvoegt voor elk aandeel
 def analyze_stock_full(ticker, macro_info):
     hist = get_history(ticker, "1y")
     if hist.empty or len(hist) < 30:
@@ -396,29 +485,31 @@ def analyze_stock_full(ticker, macro_info):
 
     company = str(info.get("longName") or info.get("shortName") or ticker)
 
-    # Voer de 8 agents uit
-    tech_score, tech_reasons = agent_1_quant_technical(close, high, low, volume, price)
-    fund_score, fund_reasons, pe, pb, margin = agent_2_fundamental_valuation(info)
-    pos_news, neg_news, unc_news, news_adj = agent_3_kap_news_monitor(ticker, company)
-    macro_adj, macro_reason = agent_4_macro_currency_risk(macro_info, ticker)
-    debt_adj, debt_reason = agent_5_debt_interest_model(info)
-    buyback_adj, _ = agent_6_insider_buyback_tracker(info)
+    # Uitvoeren van alle 8 autonome agents
+    tech_score, tech_reasons, rsi = agent_1_quant_technical_analysis(close, high, low, volume, price)
+    fund_score, fund_reasons, pe, pb, margin, rev_growth = agent_2_fundamental_valuation_agent(info)
+    pos_news, neg_news, unc_news, news_adj = agent_3_kap_news_intelligence_agent(ticker, company)
+    macro_adj, macro_reason = agent_4_macro_currency_risk_agent(macro_info, ticker)
+    debt_adj, debt_reason = agent_5_debt_interest_model_agent(info)
+    buyback_adj, buyback_reason = agent_6_insider_buyback_tracker_agent(info)
 
     sr = calculate_sr_levels(hist)
     atr = sr["ATR"] if sr else (price * 0.03)
 
     if fund_score is not None:
-        base = 0.45 * tech_score + 0.45 * fund_score
-        data_q = "Volledig (Techniek + Fundamentals)"
+        base_score = 0.45 * tech_score + 0.45 * fund_score
+        data_quality = "Volledig (Techniek + Fundamentals)"
+        quality_adj = 0.3
     else:
-        base = tech_score * 0.8
-        data_q = "Beperkt (Alleen techniek)"
+        base_score = tech_score * 0.80
+        data_quality = "Beperkt (Alleen techniek)"
+        quality_adj = -0.5
 
-    bist_adj = 0.3 if macro_info.get("xu100_trend_positive") else -0.3
-    overall = round(min(10.0, max(1.0, base + news_adj + macro_adj + debt_adj + bist_adj)), 1)
+    bist_trend_adj = 0.3 if macro_info.get("xu100_trend_positive") else -0.3
+    overall_score = round(min(10.0, max(1.0, base_score + news_adj + macro_adj + debt_adj + buyback_adj + quality_adj + bist_trend_adj)), 1)
 
-    setup_type = agent_7_risk_auditor(tech_score, fund_score)
-    alert_msg = agent_8_telegram_alert_simulator(overall, ticker)
+    setup_type = agent_7_risk_auditor_agent(tech_score, fund_score, len(pos_news), len(neg_news))
+    alert_msg = agent_8_telegram_alert_simulator_agent(overall_score, ticker, setup_type)
 
     analyst_target = safe_float(info.get("targetMeanPrice"))
     analyst_count = int(info.get("numberOfAnalystOpinions") or 0)
@@ -431,15 +522,16 @@ def analyze_stock_full(ticker, macro_info):
         "Bedrijf": company,
         "Ticker": ticker,
         "Koers (TRY)": round(price, 2),
+        "Koers (Volledig)": format_full_number(price, 2, "₺"),
         "Type Setup": setup_type,
-        "Totaalscore": overall,
+        "Totaalscore": overall_score,
         "Technische score": tech_score,
         "Fundamentele score": fund_score,
         "P/E (FK)": round(pe, 2) if pe else None,
         "P/B (PD/DD)": round(pb, 2) if pb else None,
         "Winstmarge %": round(margin * 100, 2) if margin is not None else None,
-        "Omzetgroei %": round(safe_float(info.get("revenueGrowth")) * 100, 2) if info.get("revenueGrowth") else None,
-        "RSI": round(safe_float(calculate_rsi(close).iloc[-1]), 1),
+        "Omzetgroei %": round(rev_growth * 100, 2) if rev_growth is not None else None,
+        "RSI": round(rsi, 1) if rsi is not None else None,
         "S1": sr["S1"] if sr else None,
         "R1": sr["R1"] if sr else None,
         "SR_Relevantie": sr["Relevantie"] if sr else "N.B.",
@@ -453,16 +545,22 @@ def analyze_stock_full(ticker, macro_info):
         "Negatief nieuws": neg_news,
         "Onduidelijk nieuws": unc_news,
         "Nieuws samenvatting": f"+{len(pos_news)} / -{len(neg_news)} / ?{len(unc_news)}",
-        "Datadekking": data_q,
+        "Datadekking": data_quality,
         "Technische signalen": "; ".join(tech_reasons),
         "Fundamentele signalen": "; ".join(fund_reasons) if fund_reasons else "Geen fundamentele data",
+        "Macro / Valuta": macro_reason,
+        "Schuld & Rente": debt_reason,
+        "Insider / Structuur": buyback_reason,
         "Alert": alert_msg
     }
 
-# --- 4. MULTI-TAB COMMAND CENTER UI ---
 
-st.title("BIST Scanner Ultimate 5.x — Multi-Tab Command Center (8 Agents)")
-st.caption("Volledige enterprise-grade screeningstool met 8 autonome analyse-agents, S1-S3/R1-R3 Fibonacci/Pivot niveaus en live KAP-monitoring.")
+# =====================================================================
+# ENTERPRISE MULTI-TAB COMMAND CENTER UI
+# =====================================================================
+
+st.title("BIST Scanner Ultimate 5.x — Enterprise Command Center")
+st.caption("Professionele kwantitatieve screeningstool met 8 zelfstandige AI-agents, volledige getallennotatie en live KAP-monitoring.")
 
 with st.sidebar:
     st.header("Besturingspaneel")
@@ -470,8 +568,8 @@ with st.sidebar:
     sort_by = st.selectbox("Rangschikken op", ["Totaalscore", "Fundamentele score", "Technische score"])
     min_data = st.selectbox("Datadekking filter", ["Alle resultaten", "Alleen met fundamentele data"])
     st.markdown("---")
-    st.markdown("### 8-Agent Architectuur")
-    st.info("1. Quant/Tech\n2. Fundamentals\n3. KAP Nieuws\n4. Macro/FX\n5. Schulden\n6. Buyback\n7. Risico-Auditor\n8. Telegram Alert")
+    st.markdown("### 8-Agent Systeemoverzicht")
+    st.info("1. Quant / Technisch\n2. Fundamentals & P/E\n3. KAP Nieuws\n4. Macro & Valuta\n5. Schulden & Rente\n6. Buyback & Float\n7. Risico-Auditor\n8. Telegram Alerts")
 
 macro = get_macro_data()
 
@@ -495,19 +593,19 @@ with tab_dashboard:
     with m2:
         st.metric("BIST 100 — 3m Rendement", f"{macro['xu100_return']:+.2f}%" if macro["xu100_return"] is not None else "N.B.")
     with m3:
-        st.metric("BIST 100 Index Koers", f"{macro['xu100_price']:,.0f}" if macro["xu100_price"] is not None else "N.B.")
+        st.metric("BIST 100 Index Koers", format_full_number(macro['xu100_price'], 0, "₺") if macro["xu100_price"] is not None else "N.B.")
 
     st.markdown("#### BIST 100 (XU100) — Steun & Weerstand (S1–S3 & R1–R3)")
     if macro["xu100_sr"]:
         bsr = macro["xu100_sr"]
         b_cols = st.columns(7)
-        b_cols[0].metric("Steun S3", f"{bsr['S3']:,.0f}")
-        b_cols[1].metric("Steun S2", f"{bsr['S2']:,.0f}")
-        b_cols[2].metric("Steun S1", f"{bsr['S1']:,.0f}")
-        b_cols[3].metric("Pivot", f"{bsr['Pivot']:,.0f}")
-        b_cols[4].metric("Weerstand R1", f"{bsr['R1']:,.0f}")
-        b_cols[5].metric("Weerstand R2", f"{bsr['R2']:,.0f}")
-        b_cols[6].metric("Weerstand R3", f"{bsr['R3']:,.0f}")
+        b_cols[0].metric("Steun S3", format_full_number(bsr['S3'], 0, "₺"))
+        b_cols[1].metric("Steun S2", format_full_number(bsr['S2'], 0, "₺"))
+        b_cols[2].metric("Steun S1", format_full_number(bsr['S1'], 0, "₺"))
+        b_cols[3].metric("Pivot", format_full_number(bsr['Pivot'], 0, "₺"))
+        b_cols[4].metric("Weerstand R1", format_full_number(bsr['R1'], 0, "₺"))
+        b_cols[5].metric("Weerstand R2", format_full_number(bsr['R2'], 0, "₺"))
+        b_cols[6].metric("Weerstand R3", format_full_number(bsr['R3'], 0, "₺"))
         st.caption(f"**Marktcontext:** {bsr['Relevantie']}")
     else:
         st.info("BIST 100 niveaus momenteel niet beschikbaar.")
@@ -556,24 +654,23 @@ with tab_scanner:
         top10 = results.head(10)
         top10_cols = [
             "Bedrijf", "Ticker", "Type Setup", "Totaalscore", "Technische score",
-            "Fundamentele score", "Koers (TRY)", "P/E (FK)", "P/B (PD/DD)",
-            "S1", "R1", "Nieuws samenvatting"
+            "Fundamentele score", "Koers (Volledig)", "P/E (FK)", "P/B (PD/DD)",
+            "Nieuws samenvatting"
         ]
         st.dataframe(top10[top10_cols], use_container_width=True, hide_index=True)
 
         st.markdown("### Volledige Ranglijst")
         display_cols = [
-            "Bedrijf", "Ticker", "Type Setup", "Koers (TRY)", "Totaalscore",
+            "Bedrijf", "Ticker", "Type Setup", "Koers (Volledig)", "Totaalscore",
             "Technische score", "Fundamentele score", "P/E (FK)", "P/B (PD/DD)",
-            "Winstmarge %", "Omzetgroei %", "RSI", "S1", "R1", "Koersdoelruimte %",
-            "Nieuws samenvatting"
+            "Winstmarge %", "Omzetgroei %", "RSI", "Nieuws samenvatting"
         ]
         st.dataframe(results[display_cols], use_container_width=True, hide_index=True)
 
         csv = results.drop(columns=["Positief nieuws", "Negatief nieuws", "Onduidelijk nieuws"]).to_csv(index=False).encode("utf-8-sig")
         st.download_button("Download resultaten als CSV", data=csv, file_name="bist_scanner_8agents_results.csv", mime="text/csv")
 
-        st.subheader("Detailanalyse per aandeel (Agent Output & Niveaus)")
+        st.subheader("Detailanalyse per aandeel (8-Agent Output & Niveaus)")
         for _, row in results.iterrows():
             with st.expander(f"{row['Bedrijf']} ({row['Ticker']}) — Score: {row['Totaalscore']}/10 — {row['Type Setup']}"):
                 if row["Alert"]:
@@ -586,9 +683,9 @@ with tab_scanner:
 
                 st.markdown("#### Steun en Weerstand")
                 sr_df = pd.DataFrame([
-                    {"Niveau": "Weerstand R1", "Prijs": f"₺{row['R1']}"},
-                    {"Niveau": "Huidige Koers", "Prijs": f"₺{row['Koers (TRY)']}"},
-                    {"Niveau": "Steun S1", "Prijs": f"₺{row['S1']}"},
+                    {"Niveau": "Weerstand R1", "Prijs": format_full_number(row['R1'], 2, "₺")},
+                    {"Niveau": "Huidige Koers", "Prijs": row['Koers (Volledig)']},
+                    {"Niveau": "Steun S1", "Prijs": format_full_number(row['S1'], 2, "₺")},
                 ])
                 st.table(sr_df)
                 st.write(f"**Relevantie:** {row['SR_Relevantie']}")
@@ -608,10 +705,13 @@ with tab_scanner:
                     for n in row["Onduidelijk nieuws"]:
                         st.markdown(f"- [{n['titel']}]({n['link']})")
 
-                st.markdown("#### Agent Onderbouwing")
+                st.markdown("#### 8-Agent Onderbouwing")
                 st.write(f"**Agent 1 (Techniek):** {row['Technische signalen']}")
                 st.write(f"**Agent 2 (Fundamentals):** {row['Fundamentele signalen']} (Marge: {row['Winstmarge %']}% · Omzetgroei: {row['Omzetgroei %']}%)")
-                st.write(f"**Analisten:** {row['Analistenadvies']} (Doel: ₺{row['Analistenkoersdoel']})")
+                st.write(f"**Agent 4 (Macro/FX):** {row['Macro / Valuta']}")
+                st.write(f"**Agent 5 (Schulden):** {row['Schuld & Rente']}")
+                st.write(f"**Agent 6 (Structuur):** {row['Insider / Structuur']}")
+                st.write(f"**Analisten:** {row['Analistenadvies']} (Doel: {format_full_number(row['Analistenkoersdoel'], 2, '₺')})")
 
 with tab_news:
     st.subheader("Gecategoriseerde KAP & Marktnieuws Intelligence")
@@ -649,7 +749,7 @@ with tab_portfolio:
                 p_rows.append(res)
         if p_rows:
             p_df = pd.DataFrame(p_rows)
-            st.dataframe(p_df[["Bedrijf", "Ticker", "Koers (TRY)", "Totaalscore", "ATR-stop", "ATR-doel"]], use_container_width=True)
+            st.dataframe(p_df[["Bedrijf", "Ticker", "Koers (Volledig)", "Totaalscore"]], use_container_width=True)
 
 with tab_system:
     st.subheader("Systeemstatus & 8-Agent Logboeken")
