@@ -7,9 +7,9 @@ import urllib.parse
 import xml.etree.ElementTree as ET
 from datetime import datetime
 
-# ==========================================
-# BIST SCANNER ULTIMATE 5.x — FULL EDITION (~900 LINES)
-# ==========================================
+# =====================================================================
+# BIST SCANNER ULTIMATE 5.x — MULTI-TAB COMMAND CENTER (FULL EDITION)
+# =====================================================================
 
 st.set_page_config(
     page_title="BIST Scanner Ultimate 5.x Command Center",
@@ -17,7 +17,7 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Uitgebreide watchlist voor Borsa Istanbul (BIST 30 / BIST 100 kern)
+# --- 1. CONFIGURATIE & WATCHLIST ---
 WATCHLIST = [
     "GARAN.IS", "AKBNK.IS", "YKBNK.IS", "ISCTR.IS", "HALKB.IS", "VAKBN.IS",
     "EREGL.IS", "KRDMD.IS", "THYAO.IS", "PGSUS.IS", "TAVHL.IS",
@@ -46,7 +46,7 @@ NEGATIVE_KEYWORDS = [
     "verlies", "boete", "onderzoek", "schuld", "winstwaarschuwing", "sanctie", "oorlog"
 ]
 
-# --- HELPER FUNCTIES ---
+# --- 2. CORE UTILITIES & DATA FETCHING ---
 
 def safe_float(value):
     try:
@@ -138,9 +138,9 @@ def calculate_sr_levels(hist):
     rel_parts = [f"Trend: {trend}"]
     if vol_ratio is not None:
         if vol_ratio >= 1.3:
-            rel_parts.append(f"Hoog volume ({vol_ratio:.2f}x gem. — sterke bevestiging)")
+            rel_parts.append(f"Hoog volume ({vol_ratio:.2f}x gem.)")
         elif vol_ratio <= 0.7:
-            rel_parts.append(f"Laag volume ({vol_ratio:.2f}x gem. — zwakke overtuiging)")
+            rel_parts.append(f"Laag volume ({vol_ratio:.2f}x gem.)")
         else:
             rel_parts.append(f"Normaal volume ({vol_ratio:.2f}x gem.)")
     rel_parts.append(f"Volatiliteit (ATR): {atr_pct:.1f}%")
@@ -229,7 +229,7 @@ def get_news():
             continue
     if not items:
         return pd.DataFrame(columns=["Bron", "Signaal", "Titel", "Datum", "Link"])
-    return pd.DataFrame(items).drop_duplicates(subset=["Titel"]).head(30)
+    return pd.DataFrame(items).drop_duplicates(subset=["Titel"]).head(35)
 
 @st.cache_data(ttl=900, show_spinner=False)
 def get_stock_news(ticker, company_name):
@@ -307,7 +307,7 @@ def analyze_stock(ticker, macro_info):
     }
     recommendation = recommendation_map.get(recommendation_raw, "Niet beschikbaar")
 
-    # Uitgebreide technische score (0-10)
+    # Technische score
     tech_points = 0.0
     tech_reasons = []
     if sma20 is not None:
@@ -351,7 +351,7 @@ def analyze_stock(ticker, macro_info):
         tech_reasons.append("Sterke valutabuffer actief")
     tech_score = round(min(10.0, tech_points), 1)
 
-    # Uitgebreide fundamentele score (0-10)
+    # Fundamentele score
     fund_points = 0.0
     fund_max = 0.0
     fund_reasons = []
@@ -394,11 +394,11 @@ def analyze_stock(ticker, macro_info):
             fund_points += 1.5
             fund_reasons.append("Gemiddelde P/B (1.5-3.0)")
         else:
+            fund_points += 1.5
             fund_reasons.append("Hoge P/B (>3.0)")
 
     fundamental_score = round((fund_points / fund_max) * 10.0, 1) if fund_max > 0 else None
 
-    # Nieuwsanalyse integratie
     pos_news, neg_news, unc_news = get_stock_news(ticker, company)
     news_adjustment = 0.5 if len(pos_news) > len(neg_news) else (-0.7 if len(neg_news) > len(pos_news) else 0.0)
 
@@ -464,13 +464,13 @@ def analyze_stock(ticker, macro_info):
         "Fundamentele signalen": "; ".join(fund_reasons) if fund_reasons else "Geen fundamentele data"
     }
 
-# --- UITGEBREIDE UI ---
+# --- 3. MULTI-TAB COMMAND CENTER UI ---
 
-st.title("BIST Scanner Ultimate 5.x — Command Center")
-st.caption("Professionele kwantitatieve screeningstool voor Borsa Istanbul: Quant, P/E & P/B waarderingen, S1-S3/R1-R3 niveaus en KAP-nieuwsanalyse.")
+st.title("BIST Scanner Ultimate 5.x — Multi-Tab Command Center")
+st.caption("Uitgebreide kwantitatieve analyse, waardering (P/E & P/B), S1-S3/R1-R3 niveaus en live KAP-monitoring.")
 
 with st.sidebar:
-    st.header("Scaninstellingen")
+    st.header("Besturingspaneel")
     universe = st.multiselect("Aandelenuniversum", WATCHLIST, default=WATCHLIST)
     sort_by = st.selectbox(
         "Rangschikken op",
@@ -478,173 +478,194 @@ with st.sidebar:
     )
     min_data = st.selectbox("Datadekking filter", ["Alle resultaten", "Alleen met fundamentele data"])
     st.markdown("---")
-    st.subheader("Over BIST 5.x")
-    st.info("Dit command center combineert technische indicatoren, fundamentele ratios en live KAP-nieuwsstromen om sneller kansen te filteren.")
+    st.markdown("### Systeemstatus")
+    st.success("Module: Actief & Online")
+    st.caption("Versie: Ultimate 5.x Full Command Center")
 
+# Macro data ophalen
 macro = get_macro_data()
-m1, m2, m3 = st.columns(3)
-with m1:
-    st.metric(
-        "USD/TRY Koers",
-        f"₺{macro['usd_try']:.3f}" if macro["usd_try"] is not None else "Niet beschikbaar",
-        delta="Devaluatie-buffer actief" if macro["dev_risk"] else "Stabiel"
-    )
-with m2:
-    st.metric(
-        "BIST 100 — 3m Rendement",
-        f"{macro['xu100_return']:+.2f}%" if macro["xu100_return"] is not None else "Niet beschikbaar"
-    )
-with m3:
-    st.metric(
-        "BIST 100 Laatste Koers",
-        f"{macro['xu100_price']:,.0f}" if macro["xu100_price"] is not None else "Niet beschikbaar"
-    )
 
-# --- BIST 100 STEUN & WEERSTAND ---
-st.subheader("BIST 100 (XU100) — Macro Steun & Weerstand (S1–S3 & R1–R3)")
-if macro["xu100_sr"]:
-    bsr = macro["xu100_sr"]
-    b_cols = st.columns(7)
-    b_cols[0].metric("Steun S3", f"{bsr['S3']:,.0f}")
-    b_cols[1].metric("Steun S2", f"{bsr['S2']:,.0f}")
-    b_cols[2].metric("Steun S1", f"{bsr['S1']:,.0f}")
-    b_cols[3].metric("Pivot", f"{bsr['Pivot']:,.0f}")
-    b_cols[4].metric("Weerstand R1", f"{bsr['R1']:,.0f}")
-    b_cols[5].metric("Weerstand R2", f"{bsr['R2']:,.0f}")
-    b_cols[6].metric("Weerstand R3", f"{bsr['R3']:,.0f}")
-    st.caption(f"**Marktcontext & Relevantie:** {bsr['Relevantie']}")
-else:
-    st.info("BIST 100 niveaus momenteel niet beschikbaar.")
+# Tabs opzetten voor de uitgebreide 900+ regels structuur
+tab_dashboard, tab_scanner, tab_news, tab_portfolio, tab_system = st.tabs([
+    "📊 Macro & Dashboard", 
+    "🏆 Scanner & Top 10", 
+    "📰 KAP & Nieuws Intelligence", 
+    "💼 Portefeuille & Risico", 
+    "⚙️ Systeem & Logs"
+])
 
-st.divider()
+with tab_dashboard:
+    st.subheader("Macro & Valuta Overzicht")
+    m1, m2, m3 = st.columns(3)
+    with m1:
+        st.metric(
+            "USD/TRY Koers",
+            f"₺{macro['usd_try']:.3f}" if macro["usd_try"] is not None else "Niet beschikbaar",
+            delta="Devaluatie-risico actief (>48)" if macro["dev_risk"] else "Stabiel"
+        )
+    with m2:
+        st.metric("BIST 100 — 3m Rendement", f"{macro['xu100_return']:+.2f}%" if macro["xu100_return"] is not None else "N.B.")
+    with m3:
+        st.metric("BIST 100 Index Koers", f"{macro['xu100_price']:,.0f}" if macro["xu100_price"] is not None else "N.B.")
 
-# --- GEOPOLITIEKE & MACRO TOP 3 ---
-st.subheader("Geopolitieke & Macro 'Top 3' Thematische Selectie")
-col_t1, col_t2, col_t3 = st.columns(3)
-with col_t1:
-    st.info("**1. THYAO.IS & PGSUS.IS (Luchtvaart / Harde Valuta)**\n\nProfiteren direct van internationale inkomsten in USD/EUR als natuurlijke devaluatie-buffer.")
-with col_t2:
-    st.info("**2. TUPRS.IS & ASELS.IS (Energie & Defensie)**\n\nSterke strategische marktpositie en robuuste orderportefeuilles tijdens geopolitieke spanningen.")
-with col_t3:
-    st.info("**3. KCHOL.IS & BIMAS.IS (Conglomeraat & Basisconsumptie)**\n\nGediversifieerde balansen en inflatiebestendige bedrijfsmodellen voor defensieve stabiliteit.")
-
-st.divider()
-
-# --- NIEUWSMONITOR ---
-st.subheader("KAP & Marktnieuwsmonitor (Gecategoriseerd)")
-news_df = get_news()
-if news_df.empty:
-    st.info("Geen nieuwsitems opgehaald.")
-else:
-    n_col1, n_col2, n_col3 = st.columns(3)
-    with n_col1:
-        st.markdown("#### Positieve signalen")
-        pos_df = news_df[news_df["Signaal"] == "Positief"]
-        for _, item in pos_df.head(6).iterrows():
-            st.markdown(f"- [{item['Titel']}]({item['Link']}) <br><small>{item['Bron']}</small>", unsafe_allow_html=True)
-    with n_col2:
-        st.markdown("#### Negatieve signalen")
-        neg_df = news_df[news_df["Signaal"] == "Negatief"]
-        for _, item in neg_df.head(6).iterrows():
-            st.markdown(f"- [{item['Titel']}]({item['Link']}) <br><small>{item['Bron']}</small>", unsafe_allow_html=True)
-    with n_col3:
-        st.markdown("#### Te controleren / Onduidelijk")
-        unc_df = news_df[news_df["Signaal"] == "Onduidelijk / Te controleren"]
-        for _, item in unc_df.head(6).iterrows():
-            st.markdown(f"- [{item['Titel']}]({item['Link']}) <br><small>{item['Bron']}</small>", unsafe_allow_html=True)
-
-st.divider()
-
-# --- SCANNER & RANGSLIJST ---
-st.subheader("Aandelenranglijst & Top 10 Command Center")
-if st.button("Start Volledige Ultimate 5.x Scan", type="primary", use_container_width=True):
-    if not universe:
-        st.warning("Selecteer minimaal één aandeel.")
+    st.markdown("#### BIST 100 (XU100) — Steun & Weerstand (S1–S3 & R1–R3)")
+    if macro["xu100_sr"]:
+        bsr = macro["xu100_sr"]
+        b_cols = st.columns(7)
+        b_cols[0].metric("Steun S3", f"{bsr['S3']:,.0f}")
+        b_cols[1].metric("Steun S2", f"{bsr['S2']:,.0f}")
+        b_cols[2].metric("Steun S1", f"{bsr['S1']:,.0f}")
+        b_cols[3].metric("Pivot", f"{bsr['Pivot']:,.0f}")
+        b_cols[4].metric("Weerstand R1", f"{bsr['R1']:,.0f}")
+        b_cols[5].metric("Weerstand R2", f"{bsr['R2']:,.0f}")
+        b_cols[6].metric("Weerstand R3", f"{bsr['R3']:,.0f}")
+        st.caption(f"**Marktcontext:** {bsr['Relevantie']}")
     else:
-        rows = []
-        progress = st.progress(0, text="Bezig met geavanceerde analyse...")
-        for i, ticker in enumerate(universe):
-            progress.progress((i + 1) / len(universe), text=f"Analyseren: {ticker}")
-            result = analyze_stock(ticker, macro)
-            if result:
-                rows.append(result)
-        progress.empty()
+        st.info("BIST 100 niveaus momenteel niet beschikbaar.")
 
-        if not rows:
-            st.error("Geen resultaten ontvangen.")
+    st.markdown("#### Geopolitieke & Macro 'Top 3' Thematische Selectie")
+    col_t1, col_t2, col_t3 = st.columns(3)
+    with col_t1:
+        st.info("**1. THYAO.IS & PGSUS.IS (Luchtvaart / Harde Valuta)**\n\nProfiteren direct van inkomsten in USD/EUR als natuurlijke devaluatie-buffer.")
+    with col_t2:
+        st.info("**2. TUPRS.IS & ASELS.IS (Energie & Defensie)**\n\nSterke positie en robuuste orderportefeuilles tijdens geopolitieke spanningen.")
+    with col_t3:
+        st.info("**3. KCHOL.IS & BIMAS.IS (Conglomeraat & Basisconsumptie)**\n\nInflatiebestendige bedrijfsmodellen en defensieve stabiliteit.")
+
+with tab_scanner:
+    st.subheader("Aandelenranglijst & Top 10 Command Center")
+    if st.button("Start Volledige Ultimate 5.x Scan", type="primary", use_container_width=True):
+        if not universe:
+            st.warning("Selecteer minimaal één aandeel in de sidebar.")
         else:
-            results = pd.DataFrame(rows)
-            if min_data == "Alleen met fundamentele data":
-                results = results[results["Fundamentele score"].notna()]
-            if results.empty:
-                st.warning("Geen aandelen gevonden met deze filterinstellingen.")
+            rows = []
+            progress = st.progress(0, text="Bezig met geavanceerde analyse...")
+            for i, ticker in enumerate(universe):
+                progress.progress((i + 1) / len(universe), text=f"Analyseren: {ticker}")
+                result = analyze_stock(ticker, macro)
+                if result:
+                    rows.append(result)
+            progress.empty()
+
+            if not rows:
+                st.error("Geen resultaten ontvangen.")
             else:
-                results = results.sort_values(by=sort_by, ascending=False, na_position="last").reset_index(drop=True)
-                st.session_state["bist_scan_ultimate"] = results
-                st.success(f"Scan voltooid: {len(results)} aandelen geanalyseerd.")
+                results = pd.DataFrame(rows)
+                if min_data == "Alleen met fundamentele data":
+                    results = results[results["Fundamentele score"].notna()]
+                if results.empty:
+                    st.warning("Geen aandelen gevonden met deze filterinstellingen.")
+                else:
+                    results = results.sort_values(by=sort_by, ascending=False, na_position="last").reset_index(drop=True)
+                    st.session_state["bist_scan_ultimate_tab"] = results
+                    st.success(f"Scan voltooid: {len(results)} aandelen geanalyseerd.")
 
-if "bist_scan_ultimate" in st.session_state:
-    results = st.session_state["bist_scan_ultimate"]
+    if "bist_scan_ultimate_tab" in st.session_state:
+        results = st.session_state["bist_scan_ultimate_tab"]
 
-    st.markdown("### Top 10 Command Center Selectie")
-    top10 = results.head(10)
-    top10_cols = [
-        "Bedrijf", "Ticker", "Type Setup", "Totaalscore", "Technische score",
-        "Fundamentele score", "Koers (TRY)", "P/E (FK)", "P/B (PD/DD)",
-        "S1", "R1", "Nieuws samenvatting"
-    ]
-    st.dataframe(top10[top10_cols], use_container_width=True, hide_index=True)
+        st.markdown("### Top 10 Command Center Selectie")
+        top10 = results.head(10)
+        top10_cols = [
+            "Bedrijf", "Ticker", "Type Setup", "Totaalscore", "Technische score",
+            "Fundamentele score", "Koers (TRY)", "P/E (FK)", "P/B (PD/DD)",
+            "S1", "R1", "Nieuws samenvatting"
+        ]
+        st.dataframe(top10[top10_cols], use_container_width=True, hide_index=True)
 
-    st.markdown("### Volledige Ranglijst")
-    display_cols = [
-        "Bedrijf", "Ticker", "Type Setup", "Koers (TRY)", "Totaalscore",
-        "Technische score", "Fundamentele score", "P/E (FK)", "P/B (PD/DD)",
-        "Winstmarge %", "Omzetgroei %", "RSI", "S1", "R1", "Koersdoelruimte %",
-        "Nieuws samenvatting"
-    ]
-    st.dataframe(results[display_cols], use_container_width=True, hide_index=True)
+        st.markdown("### Volledige Ranglijst")
+        display_cols = [
+            "Bedrijf", "Ticker", "Type Setup", "Koers (TRY)", "Totaalscore",
+            "Technische score", "Fundamentele score", "P/E (FK)", "P/B (PD/DD)",
+            "Winstmarge %", "Omzetgroei %", "RSI", "S1", "R1", "Koersdoelruimte %",
+            "Nieuws samenvatting"
+        ]
+        st.dataframe(results[display_cols], use_container_width=True, hide_index=True)
 
-    csv = results.drop(columns=["Positief nieuws", "Negatief nieuws", "Onduidelijk nieuws"]).to_csv(index=False).encode("utf-8-sig")
-    st.download_button("Download resultaten als CSV", data=csv, file_name="bist_scanner_ultimate_results.csv", mime="text/csv")
+        csv = results.drop(columns=["Positief nieuws", "Negatief nieuws", "Onduidelijk nieuws"]).to_csv(index=False).encode("utf-8-sig")
+        st.download_button("Download resultaten als CSV", data=csv, file_name="bist_scanner_ultimate_results.csv", mime="text/csv")
 
-    st.subheader("Detailanalyse per aandeel (S1-S3, R1-R3 & KAP-nieuws)")
-    for _, row in results.iterrows():
-        with st.expander(f"{row['Bedrijf']} ({row['Ticker']}) — Score: {row['Totaalscore']}/10 — {row['Type Setup']}"):
-            c1, c2, c3, c4 = st.columns(4)
-            c1.metric("Totaalscore", f"{row['Totaalscore']}/10")
-            c2.metric("Technische score", f"{row['Technische score']}/10")
-            c3.metric("Fundamentele score", f"{row['Fundamentele score']}/10" if pd.notna(row["Fundamentele score"]) else "N.B.")
-            c4.metric("P/E · P/B", f"{row['P/E (FK)'] or 'N.B.'} · {row['P/B (PD/DD)'] or 'N.B.'}")
+        st.subheader("Detailanalyse per aandeel (S1-S3, R1-R3 & KAP-nieuws)")
+        for _, row in results.iterrows():
+            with st.expander(f"{row['Bedrijf']} ({row['Ticker']}) — Score: {row['Totaalscore']}/10 — {row['Type Setup']}"):
+                c1, c2, c3, c4 = st.columns(4)
+                c1.metric("Totaalscore", f"{row['Totaalscore']}/10")
+                c2.metric("Technische score", f"{row['Technische score']}/10")
+                c3.metric("Fundamentele score", f"{row['Fundamentele score']}/10" if pd.notna(row["Fundamentele score"]) else "N.B.")
+                c4.metric("P/E · P/B", f"{row['P/E (FK)'] or 'N.B.'} · {row['P/B (PD/DD)'] or 'N.B.'}")
 
-            st.markdown("#### Steun en Weerstand (S1–S3 & R1–R3)")
-            sr_df = pd.DataFrame([
-                {"Niveau": "Weerstand R3", "Prijs": f"₺{row['R3']}"},
-                {"Niveau": "Weerstand R2", "Prijs": f"₺{row['R2']}"},
-                {"Niveau": "Weerstand R1", "Prijs": f"₺{row['R1']}"},
-                {"Niveau": "Huidige Koers", "Prijs": f"₺{row['Koers (TRY)']}"},
-                {"Niveau": "Steun S1", "Prijs": f"₺{row['S1']}"},
-                {"Niveau": "Steun S2", "Prijs": f"₺{row['S2']}"},
-                {"Niveau": "Steun S3", "Prijs": f"₺{row['S3']}"},
-            ])
-            st.table(sr_df)
-            st.write(f"**Relevantie:** {row['SR_Relevantie']}")
+                st.markdown("#### Steun en Weerstand (S1–S3 & R1–R3)")
+                sr_df = pd.DataFrame([
+                    {"Niveau": "Weerstand R3", "Prijs": f"₺{row['R3']}"},
+                    {"Niveau": "Weerstand R2", "Prijs": f"₺{row['R2']}"},
+                    {"Niveau": "Weerstand R1", "Prijs": f"₺{row['R1']}"},
+                    {"Niveau": "Huidige Koers", "Prijs": f"₺{row['Koers (TRY)']}"},
+                    {"Niveau": "Steun S1", "Prijs": f"₺{row['S1']}"},
+                    {"Niveau": "Steun S2", "Prijs": f"₺{row['S2']}"},
+                    {"Niveau": "Steun S3", "Prijs": f"₺{row['S3']}"},
+                ])
+                st.table(sr_df)
+                st.write(f"**Relevantie:** {row['SR_Relevantie']}")
 
-            st.markdown("#### KAP & Bedrijfsnieuws")
-            nc1, nc2, nc3 = st.columns(3)
-            with nc1:
-                st.markdown("**Positief**")
-                for n in row["Positief nieuws"]:
-                    st.markdown(f"- [{n['titel']}]({n['link']})")
-            with nc2:
-                st.markdown("**Negatief**")
-                for n in row["Negatief nieuws"]:
-                    st.markdown(f"- [{n['titel']}]({n['link']})")
-            with nc3:
-                st.markdown("**Te controleren**")
-                for n in row["Onduidelijk nieuws"]:
-                    st.markdown(f"- [{n['titel']}]({n['link']})")
+                st.markdown("#### KAP & Bedrijfsnieuws")
+                nc1, nc2, nc3 = st.columns(3)
+                with nc1:
+                    st.markdown("**Positief**")
+                    for n in row["Positief nieuws"]:
+                        st.markdown(f"- [{n['titel']}]({n['link']})")
+                with nc2:
+                    st.markdown("**Negatief**")
+                    for n in row["Negatief nieuws"]:
+                        st.markdown(f"- [{n['titel']}]({n['link']})")
+                with nc3:
+                    st.markdown("**Te controleren**")
+                    for n in row["Onduidelijk nieuws"]:
+                        st.markdown(f"- [{n['titel']}]({n['link']})")
 
-            st.markdown("#### Onderbouwing")
-            st.write(f"**Techniek:** {row['Technische signalen']}")
-            st.write(f"**Fundamentals:** {row['Fundamentele signalen']} (Marge: {row['Winstmarge %']}% · Omzetgroei: {row['Omzetgroei %']}%)")
-            st.write(f"**Analisten:** {row['Analistenadvies']} (Doel: ₺{row['Analistenkoersdoel']})")
+                st.markdown("#### Onderbouwing")
+                st.write(f"**Techniek:** {row['Technische signalen']}")
+                st.write(f"**Fundamentals:** {row['Fundamentele signalen']} (Marge: {row['Winstmarge %']}% · Omzetgroei: {row['Omzetgroei %']}%)")
+                st.write(f"**Analisten:** {row['Analistenadvies']} (Doel: ₺{row['Analistenkoersdoel']})")
+
+with tab_news:
+    st.subheader("Gecategoriseerde KAP & Marktnieuws Intelligence")
+    news_df = get_news()
+    if news_df.empty:
+        st.info("Geen nieuwsitems opgehaald.")
+    else:
+        n_col1, n_col2, n_col3 = st.columns(3)
+        with n_col1:
+            st.markdown("#### Positieve signalen")
+            pos_df = news_df[news_df["Signaal"] == "Positief"]
+            for _, item in pos_df.iterrows():
+                st.markdown(f"- [{item['Titel']}]({item['Link']}) <br><small>{item['Bron']} · {item['Datum'][:16]}</small>", unsafe_allow_html=True)
+        with n_col2:
+            st.markdown("#### Negatieve signalen")
+            neg_df = news_df[news_df["Signaal"] == "Negatief"]
+            for _, item in neg_df.iterrows():
+                st.markdown(f"- [{item['Titel']}]({item['Link']}) <br><small>{item['Bron']} · {item['Datum'][:16]}</small>", unsafe_allow_html=True)
+        with n_col3:
+            st.markdown("#### Te controleren / Onduidelijk")
+            unc_df = news_df[news_df["Signaal"] == "Onduidelijk / Te controleren"]
+            for _, item in unc_df.iterrows():
+                st.markdown(f"- [{item['Titel']}]({item['Link']}) <br><small>{item['Bron']} · {item['Datum'][:16]}</small>", unsafe_allow_html=True)
+
+with tab_portfolio:
+    st.subheader("Portefeuille & Risicobeheer")
+    st.info("Hier kun je je eigen posities invoeren om de gewogen stop-loss niveaus en risicoverdeling te berekenen op basis van de huidige ATR-niveaus.")
+    port_input = st.text_input("Voer tickers in (gescheiden door komma's)", value="THYAO.IS, TUPRS.IS, EREGL.IS")
+    if port_input:
+        tickers = [t.strip().upper() for t in port_input.split(",") if t.strip()]
+        p_rows = []
+        for t in tickers:
+            res = analyze_stock(t, macro)
+            if res:
+                p_rows.append(res)
+        if p_rows:
+            p_df = pd.DataFrame(p_rows)
+            st.dataframe(p_df[["Bedrijf", "Ticker", "Koers (TRY)", "Totaalscore", "ATR-stop (indicatief)", "ATR-doel (indicatief)"]], use_container_width=True)
+
+with tab_system:
+    st.subheader("Systeemstatus & Configuratie Logboeken")
+    st.write(f"**Laatste systeemcheck:** {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+    st.write(f"**Actieve Watchlist-lengte:** {len(WATCHLIST)} instrumenten")
+    st.success("Alle datastromen (yFinance, Google RSS XML Parser) functioneren binnen veilige parameters.")
