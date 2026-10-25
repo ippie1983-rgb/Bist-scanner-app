@@ -11,12 +11,12 @@ import xml.etree.ElementTree as ET
 from datetime import datetime, timedelta
 
 # ==============================================================================
-# BIST SCANNER ULTIMATE 5.7 — 8-AGENT ENTERPRISE COMMAND CENTER
-# VOLLEDIGE UITVOERING: GEEN AFKORTINGEN, VOLLEDIGE GETALLEN, 8 ZELFSTANDIGE AGENTS
+# BIST SCANNER ULTIMATE 5.7 — 8-AGENT ENTERPRISE COMMAND CENTER (FULL BIST 100)
+# VOLLEDIGE UITVOERING: ALLE 100 BIST 100 AANDELEN, GEEN AFKORTINGEN, 8 AGENTS
 # ==============================================================================
 
 st.set_page_config(
-    page_title="BIST Scanner Ultimate 5.7 — 8-Agent Command Center",
+    page_title="BIST 100 Scanner Ultimate 5.7 — 8-Agent Command Center",
     layout="wide",
     initial_sidebar_state="expanded"
 )
@@ -72,73 +72,161 @@ st.markdown(
 )
 
 # ==============================================================================
-# 1. CONFIGURATIE, UNIVERSUM, SECTOREN & TREFWOORDEN
+# 1. VOLLEDIGE BIST 100 (100 AANDELEN), BIST 30, SECTOREN & TREFWOORDEN
 # ==============================================================================
 
 WATCHLIST = [
-    "GARAN.IS", "AKBNK.IS", "YKBNK.IS", "ISCTR.IS", "HALKB.IS", "VAKBN.IS",
-    "EREGL.IS", "KRDMD.IS", "THYAO.IS", "PGSUS.IS", "TAVHL.IS",
-    "TUPRS.IS", "PETKM.IS", "SISE.IS", "KCHOL.IS", "SAHOL.IS", "BIMAS.IS",
-    "MGROS.IS", "SOKM.IS", "TCELL.IS", "TTKOM.IS", "ASELS.IS", "FROTO.IS",
-    "TOASO.IS", "DOAS.IS", "TTRAK.IS", "ENKAI.IS", "ARCLK.IS", "VESBE.IS",
-    "AEFES.IS", "CCOLA.IS", "ULKER.IS", "EKGYO.IS", "ISGYO.IS", "ODAS.IS",
-    "ASTOR.IS", "ENERY.IS", "HEKTS.IS", "SASA.IS", "KOZAL.IS", "KOZAA.IS",
-    "IPEKE.IS", "GUBRF.IS", "OYAKC.IS", "CIMSA.IS", "MAVI.IS"
+    # 1 - 10
+    "AEFES.IS", "AGHOL.IS", "AGROT.IS", "AHGAZ.IS", "AKBNK.IS",
+    "AKCNS.IS", "AKFGY.IS", "AKFYE.IS", "AKSA.IS", "AKSEN.IS",
+    # 11 - 20
+    "ALARK.IS", "ALBRK.IS", "ALFAS.IS", "ALTNY.IS", "ANSGR.IS",
+    "ARCLK.IS", "ARDYZ.IS", "ASELS.IS", "ASTOR.IS", "BERA.IS",
+    # 21 - 30
+    "BFREN.IS", "BIMAS.IS", "BINHO.IS", "BRSAN.IS", "BRYAT.IS",
+    "BTCIM.IS", "CANTE.IS", "CCOLA.IS", "CIMSA.IS", "CLEBI.IS",
+    # 31 - 40
+    "CWENE.IS", "DOAS.IS", "DOHOL.IS", "ECILC.IS", "ECZYT.IS",
+    "EGEEN.IS", "EKGYO.IS", "ENERY.IS", "ENJSA.IS", "ENKAI.IS",
+    # 41 - 50
+    "EREGL.IS", "EUPWR.IS", "EUREN.IS", "FROTO.IS", "GARAN.IS",
+    "GESAN.IS", "GUBRF.IS", "GWIND.IS", "HALKB.IS", "HEKTS.IS",
+    # 51 - 60
+    "IPEKE.IS", "ISCTR.IS", "ISDMR.IS", "ISGYO.IS", "ISMEN.IS",
+    "KAYSE.IS", "KCAER.IS", "KCHOL.IS", "KLSER.IS", "KONTR.IS",
+    # 61 - 70
+    "KONYA.IS", "KOZAA.IS", "KOZAL.IS", "KRDMD.IS", "MAVI.IS",
+    "MGROS.IS", "MIATK.IS", "ODAS.IS", "OTKAR.IS", "OYAKC.IS",
+    # 71 - 80
+    "PETKM.IS", "PGSUS.IS", "QUAGR.IS", "REEDR.IS", "SAHOL.IS",
+    "SASA.IS", "SDTTR.IS", "SISE.IS", "SKBNK.IS", "SMRTG.IS",
+    # 81 - 90
+    "SOKM.IS", "TABGD.IS", "TAVHL.IS", "TCELL.IS", "THYAO.IS",
+    "TKFEN.IS", "TOASO.IS", "TSKB.IS", "TTKOM.IS", "TTRAK.IS",
+    # 91 - 100
+    "TUPRS.IS", "TURSG.IS", "ULKER.IS", "VAKBN.IS", "VESBE.IS",
+    "VESTL.IS", "YEOTK.IS", "YKBNK.IS", "YYLGD.IS", "ZOREN.IS"
+]
+
+BIST30_LIST = [
+    "AKBNK.IS", "ALARK.IS", "ARCLK.IS", "ASELS.IS", "ASTOR.IS",
+    "BIMAS.IS", "BRSAN.IS", "DOAS.IS", "EKGYO.IS", "ENKAI.IS",
+    "EREGL.IS", "FROTO.IS", "GARAN.IS", "GUBRF.IS", "HEKTS.IS",
+    "ISCTR.IS", "KCHOL.IS", "KONTR.IS", "KOZAL.IS", "KRDMD.IS",
+    "MGROS.IS", "OYAKC.IS", "PETKM.IS", "PGSUS.IS", "SAHOL.IS",
+    "SASA.IS", "SISE.IS", "TCELL.IS", "THYAO.IS", "TUPRS.IS"
 ]
 
 SECTOR_MAP = {
-    "GARAN.IS": "Banken & Financieel",
-    "AKBNK.IS": "Banken & Financieel",
-    "YKBNK.IS": "Banken & Financieel",
-    "ISCTR.IS": "Banken & Financieel",
-    "HALKB.IS": "Banken & Financieel",
-    "VAKBN.IS": "Banken & Financieel",
-    "EREGL.IS": "Staal & Zware Industrie",
-    "KRDMD.IS": "Staal & Zware Industrie",
-    "THYAO.IS": "Luchtvaart & Transport",
-    "PGSUS.IS": "Luchtvaart & Transport",
-    "TAVHL.IS": "Luchtvaart & Luchthavens",
-    "TUPRS.IS": "Energie & Raffinage",
-    "PETKM.IS": "Petrochemie & Industrie",
-    "SISE.IS": "Glas, Chemie & Export",
-    "KCHOL.IS": "Conglomeraat & Holding",
-    "SAHOL.IS": "Conglomeraat & Holding",
-    "BIMAS.IS": "Supermarkten & Retail",
-    "MGROS.IS": "Supermarkten & Retail",
-    "SOKM.IS": "Supermarkten & Retail",
-    "TCELL.IS": "Telecom & Technologie",
-    "TTKOM.IS": "Telecom & Technologie",
-    "ASELS.IS": "Defensie & Hoogtechnologie",
-    "FROTO.IS": "Automotive & Export",
-    "TOASO.IS": "Automotive & Productie",
-    "DOAS.IS": "Automotive Distributie",
-    "TTRAK.IS": "Landbouwmechanisatie",
-    "ENKAI.IS": "Bouw, Energie & Valutareserves",
-    "ARCLK.IS": "Consumentenelektronica & Export",
-    "VESBE.IS": "Consumentenelektronica & Export",
     "AEFES.IS": "Dranken & Internationaal",
-    "CCOLA.IS": "Dranken & Internationaal",
-    "ULKER.IS": "Voeding & Export",
-    "EKGYO.IS": "Vastgoed (GYO)",
-    "ISGYO.IS": "Vastgoed (GYO)",
-    "ODAS.IS": "Elektriciteit & Mijnbouw",
+    "AGHOL.IS": "Conglomeraat & Holding",
+    "AGROT.IS": "Agrarische Technologie",
+    "AHGAZ.IS": "Aardgas & Distributie",
+    "AKBNK.IS": "Banken & Financieel",
+    "AKCNS.IS": "Cement & Bouwmaterialen",
+    "AKFGY.IS": "Vastgoed (GYO)",
+    "AKFYE.IS": "Duurzame Energie",
+    "AKSA.IS": "Chemie & Textielgrondstoffen",
+    "AKSEN.IS": "Energieproductie",
+    "ALARK.IS": "Conglomeraat, Energie & Bouw",
+    "ALBRK.IS": "Banken & Financieel",
+    "ALFAS.IS": "Zonne-energie & Panelen",
+    "ALTNY.IS": "Defensie & Robotica",
+    "ANSGR.IS": "Verzekeringen",
+    "ARCLK.IS": "Consumentenelektronica & Export",
+    "ARDYZ.IS": "Software & IT",
+    "ASELS.IS": "Defensie & Hoogtechnologie",
     "ASTOR.IS": "Energietechniek & Transformatoren",
-    "ENERY.IS": "Duurzame Energie",
-    "HEKTS.IS": "Agrochemie & Landbouw",
-    "SASA.IS": "Polyester & Petrochemie",
-    "KOZAL.IS": "Goud & Edelmetalen",
-    "KOZAA.IS": "Mijnbouw & Grondstoffen",
-    "IPEKE.IS": "Energie & Mijnbouw",
-    "GUBRF.IS": "Kunstmest & Grondstoffen",
-    "OYAKC.IS": "Cement & Bouwmaterialen",
+    "BERA.IS": "Conglomeraat & Industrie",
+    "BFREN.IS": "Automotive Toelevering",
+    "BIMAS.IS": "Supermarkten & Retail",
+    "BINHO.IS": "Investeringsholding",
+    "BRSAN.IS": "Stalen Buizen & Export",
+    "BRYAT.IS": "Investeringsholding",
+    "BTCIM.IS": "Cement & Bouwmaterialen",
+    "CANTE.IS": "Energieproductie",
+    "CCOLA.IS": "Dranken & Internationaal",
     "CIMSA.IS": "Cement & Export",
-    "MAVI.IS": "Kleding & Retail"
+    "CLEBI.IS": "Luchtvaartafhandeling",
+    "CWENE.IS": "Zonne-energie & Techniek",
+    "DOAS.IS": "Automotive Distributie",
+    "DOHOL.IS": "Conglomeraat & Holding",
+    "ECILC.IS": "Farmacie & Gezondheid",
+    "ECZYT.IS": "Investeringsholding",
+    "EGEEN.IS": "Automotive Toelevering & Export",
+    "EKGYO.IS": "Vastgoed (GYO)",
+    "ENERY.IS": "Aardgas & Energie",
+    "ENJSA.IS": "Energiedistributie & Nutsbedrijf",
+    "ENKAI.IS": "Bouw, Energie & Valutareserves",
+    "EREGL.IS": "Staal & Zware Industrie",
+    "EUPWR.IS": "Energietechniek & Systemen",
+    "EUREN.IS": "Bouwmaterialen & Glas/PVC",
+    "FROTO.IS": "Automotive & Export",
+    "GARAN.IS": "Banken & Financieel",
+    "GESAN.IS": "Energietechniek & Netwerken",
+    "GUBRF.IS": "Kunstmest & Grondstoffen",
+    "GWIND.IS": "Duurzame Wind- & Zonne-energie",
+    "HALKB.IS": "Banken & Financieel",
+    "HEKTS.IS": "Agrochemie & Landbouw",
+    "IPEKE.IS": "Energie & Mijnbouw",
+    "ISCTR.IS": "Banken & Financieel",
+    "ISDMR.IS": "Staal & Zware Industrie",
+    "ISGYO.IS": "Vastgoed (GYO)",
+    "ISMEN.IS": "Brokerage & Kapitaalmarkten",
+    "KAYSE.IS": "Voeding & Suikerindustrie",
+    "KCAER.IS": "Staalprofielen & Export",
+    "KCHOL.IS": "Conglomeraat & Holding",
+    "KLSER.IS": "Keramiek & Bouwmaterialen",
+    "KONTR.IS": "Technologie, Ruimtevaart & Energie",
+    "KONYA.IS": "Cement & Bouwmaterialen",
+    "KOZAA.IS": "Mijnbouw & Grondstoffen",
+    "KOZAL.IS": "Goud & Edelmetalen",
+    "KRDMD.IS": "Staal & Zware Industrie",
+    "MAVI.IS": "Kleding & Retail",
+    "MGROS.IS": "Supermarkten & Retail",
+    "MIATK.IS": "Software, AI & Technologie",
+    "ODAS.IS": "Elektriciteit & Mijnbouw",
+    "OTKAR.IS": "Defensievoertuigen & Bussen",
+    "OYAKC.IS": "Cement & Bouwmaterialen",
+    "PETKM.IS": "Petrochemie & Industrie",
+    "PGSUS.IS": "Luchtvaart & Transport",
+    "QUAGR.IS": "Graniet, Keramiek & Export",
+    "REEDR.IS": "Consumentenelektronica & Telefoons",
+    "SAHOL.IS": "Conglomeraat & Holding",
+    "SASA.IS": "Polyester & Petrochemie",
+    "SDTTR.IS": "Defensie & Ruimtevaarttechniek",
+    "SISE.IS": "Glas, Chemie & Export",
+    "SKBNK.IS": "Banken & Financieel",
+    "SMRTG.IS": "Zonne-energie & Techniek",
+    "SOKM.IS": "Supermarkten & Retail",
+    "TABGD.IS": "Restaurants & Voeding",
+    "TAVHL.IS": "Luchtvaart & Luchthavens",
+    "TCELL.IS": "Telecom & Technologie",
+    "THYAO.IS": "Luchtvaart & Transport",
+    "TKFEN.IS": "Bouw, Engineering & Kunstmest",
+    "TOASO.IS": "Automotive & Productie",
+    "TSKB.IS": "Ontwikkelings- & Investeringsbank",
+    "TTKOM.IS": "Telecom & Technologie",
+    "TTRAK.IS": "Landbouwmechanisatie",
+    "TUPRS.IS": "Energie & Raffinage",
+    "TURSG.IS": "Verzekeringen",
+    "ULKER.IS": "Voeding & Export",
+    "VAKBN.IS": "Banken & Financieel",
+    "VESBE.IS": "Consumentenelektronica & Export",
+    "VESTL.IS": "Consumentenelektronica & Export",
+    "YEOTK.IS": "Energietechniek & Automatisering",
+    "YKBNK.IS": "Banken & Financieel",
+    "YYLGD.IS": "Voeding & Agrarische Export",
+    "ZOREN.IS": "Energie & Geothermie"
 }
 
 HARD_CURRENCY_EXPORTERS = {
-    "THYAO.IS", "PGSUS.IS", "TAVHL.IS", "EREGL.IS", "SISE.IS",
-    "TUPRS.IS", "FROTO.IS", "ASELS.IS", "ENKAI.IS", "ARCLK.IS",
-    "VESBE.IS", "KOZAL.IS", "KOZAA.IS", "CIMSA.IS", "ASTOR.IS"
+    "THYAO.IS", "PGSUS.IS", "TAVHL.IS", "CLEBI.IS", "EREGL.IS",
+    "ISDMR.IS", "KCAER.IS", "BRSAN.IS", "SISE.IS", "TUPRS.IS",
+    "FROTO.IS", "TOASO.IS", "EGEEN.IS", "OTKAR.IS", "ASELS.IS",
+    "ALTNY.IS", "SDTTR.IS", "ENKAI.IS", "ARCLK.IS", "VESBE.IS",
+    "VESTL.IS", "KOZAL.IS", "KOZAA.IS", "CIMSA.IS", "ASTOR.IS",
+    "EUPWR.IS", "GESAN.IS", "KONTR.IS", "AEFES.IS", "CCOLA.IS"
 }
 
 NEWS_URLS = [
@@ -539,9 +627,9 @@ def get_stock_news(ticker, company_name):
     pos_list, neg_list, unc_list = [], [], []
     try:
         req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
-        with urllib.request.urlopen(req, timeout=5) as response:
+        with urllib.request.urlopen(req, timeout=4) as response:
             root = ET.fromstring(response.read())
-        for item in root.findall(".//item")[:8]:
+        for item in root.findall(".//item")[:6]:
             title = item.findtext("title")
             pub_date = item.findtext("pubDate") or ""
             link = item.findtext("link") or ""
@@ -825,13 +913,17 @@ def agent_2_fundamental_quarterly_valuation(info, q_metrics):
     }
 
 
-def agent_3_kap_and_news_intelligence(ticker, company, fund_res, q_metrics, macro_info, api_key=None, use_ai=False):
+def agent_3_kap_and_news_intelligence(ticker, company, fund_res, q_metrics, macro_info, fetch_rss=True, api_key=None, use_ai=False):
     """
     AGENT 3: KAP-Meldingen, SPK & Bedrijfsnieuws Klassificatie Agent.
     Categoriseert nieuws in Positieve signalen, Negatieve signalen en Te controleren meldingen,
     aangevuld met optionele Gemini AI-duiding.
     """
-    pos_news, neg_news, unc_news = get_stock_news(ticker, company)
+    if fetch_rss:
+        pos_news, neg_news, unc_news = get_stock_news(ticker, company)
+    else:
+        pos_news, neg_news, unc_news = [], [], []
+
     headlines_tuple = tuple([n["titel"] for n in (pos_news + neg_news + unc_news)])
 
     ai_data = None
@@ -857,7 +949,11 @@ def agent_3_kap_and_news_intelligence(ticker, company, fund_res, q_metrics, macr
         sentiment = str(ai_data.get("sentiment_label", "Neutraal (AI)"))
         summary_reason = f"Gemini AI ({sentiment}): {ai_data.get('kap_duiding', '')}"
     else:
-        if len(pos_news) > len(neg_news):
+        if not fetch_rss:
+            adjustment = 0.0
+            sentiment = "Snelle Modus (RSS overgeslagen)"
+            summary_reason = "Per-aandeel RSS overgeslagen voor turbosnelheid op 100 aandelen."
+        elif len(pos_news) > len(neg_news):
             adjustment = min(0.8, 0.35 * (len(pos_news) - len(neg_news)))
             sentiment = "Positief (KAP/Nieuws)"
             summary_reason = f"{len(pos_news)} positieve KAP/nieuws-signalen tegenover {len(neg_news)} negatieve."
@@ -1132,7 +1228,7 @@ def send_telegram_alert(bot_token, chat_id, message_text):
 # 5. HOOFD-ANALYSE ENGINE & HISTORISCHE BACKTEST MODULE
 # ==============================================================================
 
-def analyze_stock_enterprise(ticker, macro_info, api_key=None, use_ai=False):
+def analyze_stock_enterprise(ticker, macro_info, fetch_rss=True, api_key=None, use_ai=False):
     hist = get_history(ticker, "1y")
     if hist.empty or len(hist) < 30:
         return None
@@ -1152,7 +1248,7 @@ def analyze_stock_enterprise(ticker, macro_info, api_key=None, use_ai=False):
         info = {}
 
     company = str(info.get("longName") or info.get("shortName") or ticker)
-    sector = SECTOR_MAP.get(ticker, str(info.get("sector") or "BIST Algemeen"))
+    sector = SECTOR_MAP.get(ticker, str(info.get("sector") or "BIST 100 Algemeen"))
 
     sr_info = calculate_sr_levels(hist)
     q_metrics = get_quarterly_and_balance_metrics(ticker)
@@ -1160,7 +1256,7 @@ def analyze_stock_enterprise(ticker, macro_info, api_key=None, use_ai=False):
     # Voer alle 8 autonome AI-Agents achter elkaar uit
     a1 = agent_1_multi_timeframe_quant(ticker, hist, sr_info)
     a2 = agent_2_fundamental_quarterly_valuation(info, q_metrics)
-    a3 = agent_3_kap_and_news_intelligence(ticker, company, a2, q_metrics, macro_info, api_key, use_ai)
+    a3 = agent_3_kap_and_news_intelligence(ticker, company, a2, q_metrics, macro_info, fetch_rss, api_key, use_ai)
     a4 = agent_4_macro_fx_devaluation_buffer(ticker, sector, macro_info)
     a5 = agent_5_debt_liquidity_interest_stress(info, q_metrics)
     a6 = agent_6_insider_buyback_dividend_structure(info, a3["pos_news"])
@@ -1331,23 +1427,53 @@ def run_historical_backtest(ticker, holding_days=10):
 
 
 # ==============================================================================
-# 6. STREAMLIT MULTI-TAB ENTERPRISE UI
+# 6. STREAMLIT MULTI-TAB ENTERPRISE UI (VOLLEDIGE BIST 100)
 # ==============================================================================
 
-st.title("🏛️ BIST Scanner Ultimate 5.7 — 8-Agent Enterprise Command Center")
+st.title("🏛️ BIST 100 Scanner Ultimate 5.7 — 8-Agent Enterprise Command Center")
 st.caption(
+    "Scant standaard alle 100 aandelen van de BIST 100 (XU100) · "
     "Volledig uitgeschreven getallen (geen afkortingen of afkappingen) · "
-    "S1–S3 & R1–R3 voor BIST 100 én elk aandeel · "
-    "Gecategoriseerd KAP-nieuws · 8 Zelfstandige AI-Agents."
+    "S1–S3 & R1–R3 voor BIST 100 én elk aandeel · 8 Zelfstandige AI-Agents."
 )
 
 with st.sidebar:
-    st.header("⚙️ Scan & Filter Instellingen")
-    universe = st.multiselect(
-        "Selecteer BIST-aandelenuniversum:",
-        options=WATCHLIST,
-        default=WATCHLIST[:20]
+    st.header("⚙️ BIST 100 Scan Instellingen")
+    selection_mode = st.radio(
+        "Kies Aandelenuniversum:",
+        [
+            "Volledige BIST 100 (Alle 100 aandelen)",
+            "BIST 30 Kernselectie (30 aandelen)",
+            "Handmatige selectie"
+        ],
+        index=0
     )
+
+    if selection_mode == "Volledige BIST 100 (Alle 100 aandelen)":
+        universe = st.multiselect(
+            f"Geselecteerde BIST 100-aandelen ({len(WATCHLIST)} totaal):",
+            options=WATCHLIST,
+            default=WATCHLIST
+        )
+    elif selection_mode == "BIST 30 Kernselectie (30 aandelen)":
+        universe = st.multiselect(
+            "Geselecteerde BIST 30-aandelen:",
+            options=WATCHLIST,
+            default=BIST30_LIST
+        )
+    else:
+        universe = st.multiselect(
+            "Kies handmatig BIST-aandelen:",
+            options=WATCHLIST,
+            default=WATCHLIST
+        )
+
+    fetch_per_stock_rss = st.toggle(
+        "Haal per aandeel live KAP/Google RSS-nieuws op (Agent 3)",
+        value=True,
+        help="Staat standaard AAN voor maximale diepgang op alle 100 aandelen. Zet uit als je een supersnelle technische + fundamentele scan wilt."
+    )
+
     sort_choice = st.selectbox(
         "Rangschikken op:",
         [
@@ -1388,7 +1514,7 @@ macro = get_macro_data()
 
 tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
     "📊 1. Macro, BIST 100 & Top 3 Thema's",
-    "🏆 2. Bruikbaarder Top 10 & Ranglijst",
+    "🏆 2. Volledige BIST 100 Scan & Top 10",
     "📐 3. Steun & Weerstand Matrix (S1-S3 / R1-R3)",
     "🤖 4. Diepte-Analyse per Aandeel (8 Agents)",
     "📰 5. KAP, SPK & Marktnieuws Monitor",
@@ -1429,7 +1555,7 @@ with tab1:
         render_full_card(
             "BIST 100 Technische Trend & VIX",
             xu_trend,
-            f"VIX Volatiliteitsindex: {format_full_number(macro['vix'], 2, '')}",
+            f"VIX Volatiliteitsindex: {format_full_number(macro['vix'], 2, '')} · Universum: {len(WATCHLIST)} BIST 100 aandelen",
             "#9467bd"
         )
 
@@ -1471,26 +1597,35 @@ with tab1:
         )
 
 # ------------------------------------------------------------------------------
-# TAB 2: BRUIKBAARDER TOP 10 & VOLLEDIGE RANGLIJST
+# TAB 2: VOLLEDIGE BIST 100 SCAN, TOP 10 & RANGLIJST
 # ------------------------------------------------------------------------------
 with tab2:
-    st.subheader("🏆 Bruikbaarder Top 10 & Volledige 8-Agent Aandelenranglijst")
+    st.subheader(f"🏆 Volledige BIST 100 Screening ({len(universe)} Aandelen Geselecteerd) & Bruikbaarder Top 10")
     st.write(
-        "De ranglijst bepaalt niet uitsluitend welk aandeel de hoogste technische score heeft, maar combineert: "
+        "De ranglijst combineert voor alle 100 BIST 100-aandelen: "
         "**technische signalen (Agent 1)**, **fundamentele gezondheid & kwartaalcijfers (Agent 2)**, "
         "**positief/negatief KAP-bedrijfsnieuws (Agent 3)**, **de algemene BIST 100-trend & valutabuffer (Agent 4)**, "
         "**schuldenstresstest (Agent 5)**, **aandeleninkoop/dividend (Agent 6)** en **datakwaliteit (Agent 7)**."
     )
 
-    if st.button("🚀 Start Volledige 8-Agent Enterprise Scan", type="primary", use_container_width=True):
+    if st.button(f"🚀 Start Volledige 8-Agent Scan op {len(universe)} BIST 100 Aandelen", type="primary", use_container_width=True):
         if not universe:
             st.warning("Selecteer minimaal één aandeel in de zijbalk.")
         else:
             scan_rows = []
-            prog = st.progress(0, text="Initialiseren van de 8 autonome AI-agents...")
+            prog = st.progress(0, text=f"Initialiseren van de 8 autonome AI-agents voor {len(universe)} aandelen...")
             for idx, ticker in enumerate(universe):
-                prog.progress((idx + 1) / len(universe), text=f"8 Agents analyseren {ticker} ({idx + 1}/{len(universe)})...")
-                item_res = analyze_stock_enterprise(ticker, macro, api_key=gemini_api_key, use_ai=use_gemini_ai)
+                prog.progress(
+                    (idx + 1) / len(universe),
+                    text=f"8 Agents analyseren {ticker} ({idx + 1} van {len(universe)})..."
+                )
+                item_res = analyze_stock_enterprise(
+                    ticker,
+                    macro,
+                    fetch_rss=fetch_per_stock_rss,
+                    api_key=gemini_api_key,
+                    use_ai=use_gemini_ai
+                )
                 if item_res:
                     scan_rows.append(item_res)
             prog.empty()
@@ -1512,12 +1647,12 @@ with tab2:
                 sort_col = sort_col_map.get(sort_choice, "_total_score_num")
                 df_all = df_all.sort_values(by=sort_col, ascending=False).reset_index(drop=True)
                 st.session_state["bist_57_results"] = df_all
-                st.success(f"Scan succesvol afgerond: {len(df_all)} aandelen volledig geanalyseerd door alle 8 agents.")
+                st.success(f"Scan succesvol afgerond: {len(df_all)} van de {len(universe)} BIST 100-aandelen volledig geanalyseerd door alle 8 agents.")
 
     if "bist_57_results" in st.session_state:
         df_res = st.session_state["bist_57_results"]
 
-        st.markdown("### 🥇 Bruikbaarder Top 10 Selectie (Volledig Uitgeschreven Cijfers)")
+        st.markdown("### 🥇 Bruikbaarder Top 10 Selectie uit de BIST 100 (Volledig Uitgeschreven Cijfers)")
         top10_cols = [
             "Bedrijf", "Ticker", "Sector", "Type Setup", "Totaalscore",
             "Technische score", "Fundamentele score", "Koers (Volledig)",
@@ -1526,9 +1661,9 @@ with tab2:
         ]
         st.dataframe(df_res.head(10)[top10_cols], use_container_width=True, hide_index=True)
 
-        st.markdown("### 📋 Volledige Ranglijst (Alle Gescande Aandelen — Geen Afkortingen)")
+        st.markdown(f"### 📋 Volledige BIST 100 Ranglijst ({len(df_res)} Aandelen — Geen Afkortingen)")
         full_cols = [
-            "Bedrijf", "Ticker", "Type Setup", "Totaalscore", "Technische score",
+            "Bedrijf", "Ticker", "Sector", "Type Setup", "Totaalscore", "Technische score",
             "Fundamentele score", "Koers (Volledig)", "Rendement 1m", "Rendement 3m",
             "P/E (FK)", "P/B (PD/DD)", "Winstmarge", "Omzetgroei (j-o-j)",
             "Kwartaalomzet (Volledig)", "Kwartaal Nettowinst (Volledig)",
@@ -1539,21 +1674,21 @@ with tab2:
         export_drop = [c for c in df_res.columns if c.startswith("_") or c in ["Positief_Nieuws", "Negatief_Nieuws", "Onduidelijk_Nieuws", "AI_Rapport"]]
         csv_bytes = df_res.drop(columns=export_drop).to_csv(index=False).encode("utf-8-sig")
         st.download_button(
-            "📥 Download Volledige 8-Agent Ranglijst als CSV",
+            "📥 Download Volledige BIST 100 Ranglijst als CSV",
             data=csv_bytes,
-            file_name=f"bist_scanner_5_7_volledig_{datetime.now().strftime('%Y%m%d_%H%M')}.csv",
+            file_name=f"bist_100_scanner_5_7_volledig_{datetime.now().strftime('%Y%m%d_%H%M')}.csv",
             mime="text/csv"
         )
     else:
-        st.info("Klik op **'Start Volledige 8-Agent Enterprise Scan'** hierboven om de analyse te starten.")
+        st.info(f"Klik op **'Start Volledige 8-Agent Scan op {len(universe)} BIST 100 Aandelen'** hierboven om de volledige BIST 100 te screenen.")
 
 # ------------------------------------------------------------------------------
 # TAB 3: STEUN & WEERSTAND MATRIX (S1-S3 & R1-R3 VOOR IEDER AANDEEL)
 # ------------------------------------------------------------------------------
 with tab3:
-    st.subheader("📐 Volledige Steun- en Weerstandsmatrix (S1–S3 & R1–R3) per Aandeel")
+    st.subheader("📐 Volledige Steun- en Weerstandsmatrix (S1–S3 & R1–R3) per BIST 100 Aandeel")
     st.write(
-        "Overzicht van de exacte eerste, tweede en derde steun- en weerstandsniveaus voor ieder aandeel, "
+        "Overzicht van de exacte eerste, tweede en derde steun- en weerstandsniveaus voor ieder gescand BIST 100-aandeel, "
         "inclusief de procentuele ruimte tot S1/R1, het volledige handelsvolume en de ATR-volatiliteit."
     )
     if "bist_57_results" in st.session_state:
@@ -1568,7 +1703,7 @@ with tab3:
         ]
         st.dataframe(df_res[sr_matrix_cols], use_container_width=True, hide_index=True)
     else:
-        st.info("Start eerst de scan in Tab 2 om de volledige Steun & Weerstand Matrix te vullen.")
+        st.info("Start eerst de scan in Tab 2 om de volledige Steun & Weerstand Matrix voor alle 100 aandelen te vullen.")
 
 # ------------------------------------------------------------------------------
 # TAB 4: DIEPTE-ANALYSE PER AANDEEL (ALLE 8 AGENTS + VOLLEDIGE TABELLEN)
@@ -1580,7 +1715,7 @@ with tab4:
     else:
         df_res = st.session_state["bist_57_results"]
         selected_ticker = st.selectbox(
-            "Kies een aandeel voor directe focus (of bekijk alle uitklapbare rapporten eronder):",
+            "Kies een BIST 100-aandeel voor directe focus (of bekijk de uitklapbare rapporten eronder):",
             options=df_res["Ticker"].tolist()
         )
 
@@ -1730,7 +1865,7 @@ with tab6:
 
     if "bist_57_results" in st.session_state:
         df_res = st.session_state["bist_57_results"]
-        top_picks = df_res.head(5)
+        top_picks = df_res.head(10)
         max_loss_try = total_capital * (risk_pct_per_trade / 100.0)
 
         sim_rows = []
@@ -1740,7 +1875,7 @@ with tab6:
             target_p = r["_atr_target_num"]
             risk_per_sh = max(0.01, entry_p - stop_p)
             shares_by_risk = int(max_loss_try // risk_per_sh)
-            max_alloc_shares = int((total_capital * 0.25) // entry_p)
+            max_alloc_shares = int((total_capital * 0.20) // entry_p)
             final_shares = max(1, min(shares_by_risk, max_alloc_shares))
             pos_value = final_shares * entry_p
             max_loss_pos = final_shares * (entry_p - stop_p)
@@ -1764,7 +1899,7 @@ with tab6:
         st.subheader("📲 Agent 8: Live Telegram Alert Dispatcher")
         alerts_available = [r["Alert_Bericht"] for _, r in df_res.iterrows() if r["Alert_Bericht"]]
         if alerts_available:
-            combined_alert_text = "\n\n".join(alerts_available[:5])
+            combined_alert_text = "\n\n".join(alerts_available[:10])
             st.code(combined_alert_text, language="text")
             if st.button("📨 Verstuur Top Alerts Nu naar Telegram"):
                 ok, msg = send_telegram_alert(tg_bot_token, tg_chat_id, combined_alert_text)
@@ -1776,10 +1911,10 @@ with tab6:
             st.info("Er zijn in de huidige scan geen aandelen met een score van 7,2 of hoger voor een automatische alert.")
 
     st.divider()
-    st.subheader("📈 Historische Signaal-Backtest (Afgelopen 12 Maanden)")
+    st.subheader("📈 Historische Signaal-Backtest (Afgelopen 12 Maanden op alle 100 Aandelen)")
     bt_col1, bt_col2 = st.columns([2, 1])
     with bt_col1:
-        bt_ticker = st.selectbox("Selecteer aandeel voor historische backtest:", options=WATCHLIST, index=8)
+        bt_ticker = st.selectbox("Selecteer een BIST 100-aandeel voor historische backtest:", options=WATCHLIST, index=84)
     with bt_col2:
         bt_days = st.slider("Houdperiode per trade (handelsdagen):", 5, 30, 10, 5)
 
