@@ -5,21 +5,30 @@ import numpy as np
 import urllib.request
 import urllib.parse
 import xml.etree.ElementTree as ET
+from datetime import datetime
 
-# BIST Scanner 5.x — Ultimate Command Center & Quant Suite
-st.set_page_config(page_title="BIST Scanner Ultimate 5.x", layout="wide")
+# ==========================================
+# BIST SCANNER ULTIMATE 5.x — FULL EDITION (~900 LINES)
+# ==========================================
 
+st.set_page_config(
+    page_title="BIST Scanner Ultimate 5.x Command Center",
+    layout="wide",
+    initial_sidebar_state="expanded"
+)
+
+# Uitgebreide watchlist voor Borsa Istanbul (BIST 30 / BIST 100 kern)
 WATCHLIST = [
     "GARAN.IS", "AKBNK.IS", "YKBNK.IS", "ISCTR.IS", "HALKB.IS", "VAKBN.IS",
     "EREGL.IS", "KRDMD.IS", "THYAO.IS", "PGSUS.IS", "TAVHL.IS",
     "TUPRS.IS", "PETKM.IS", "SISE.IS", "KCHOL.IS", "SAHOL.IS", "BIMAS.IS",
     "MGROS.IS", "TCELL.IS", "TTKOM.IS", "ASELS.IS", "FROTO.IS", "TOASO.IS",
     "ENKAI.IS", "ARCLK.IS", "TTRAK.IS", "AEFES.IS", "ULKER.IS", "DOAS.IS",
-    "EKGYO.IS"
+    "EKGYO.IS", "ODAS.IS", "HEKTS.IS", "SASAH.IS"
 ]
 
 NEWS_URLS = [
-    ("Google Nieuws — Turkije economie", "https://news.google.com/rss/search?q=Turkiye+ekonomi+Borsa+Istanbul&hl=tr&gl=TR&ceid=TR:tr"),
+    ("Google Nieuws — Turkije economie", "https://news.google.com/rss/search?q=Turkije+ekonomi+Borsa+Istanbul&hl=tr&gl=TR&ceid=TR:tr"),
     ("Google Nieuws — SPK en fondsen", "https://news.google.com/rss/search?q=SPK+fon+borsa+inceleme&hl=tr&gl=TR&ceid=TR:tr"),
     ("Google Nieuws — KAP & Bedrijfsresultaten", "https://news.google.com/rss/search?q=BIST+KAP+sirket+bilanco+kar+zarar&hl=tr&gl=TR&ceid=TR:tr"),
     ("Google Nieuws — Geopolitiek & Olie (NL)", "https://news.google.com/rss/search?q=Turkije+economie+geopolitiek+olie&hl=nl&gl=NL&ceid=NL:nl"),
@@ -37,10 +46,12 @@ NEGATIVE_KEYWORDS = [
     "verlies", "boete", "onderzoek", "schuld", "winstwaarschuwing", "sanctie", "oorlog"
 ]
 
+# --- HELPER FUNCTIES ---
+
 def safe_float(value):
     try:
-        value = float(value)
-        return value if np.isfinite(value) else None
+        val = float(value)
+        return val if np.isfinite(val) else None
     except (TypeError, ValueError):
         return None
 
@@ -127,9 +138,9 @@ def calculate_sr_levels(hist):
     rel_parts = [f"Trend: {trend}"]
     if vol_ratio is not None:
         if vol_ratio >= 1.3:
-            rel_parts.append(f"Hoog volume ({vol_ratio:.2f}x gem.)")
+            rel_parts.append(f"Hoog volume ({vol_ratio:.2f}x gem. — sterke bevestiging)")
         elif vol_ratio <= 0.7:
-            rel_parts.append(f"Laag volume ({vol_ratio:.2f}x gem.)")
+            rel_parts.append(f"Laag volume ({vol_ratio:.2f}x gem. — zwakke overtuiging)")
         else:
             rel_parts.append(f"Normaal volume ({vol_ratio:.2f}x gem.)")
     rel_parts.append(f"Volatiliteit (ATR): {atr_pct:.1f}%")
@@ -201,7 +212,7 @@ def get_news():
             request = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
             with urllib.request.urlopen(request, timeout=7) as response:
                 root = ET.fromstring(response.read())
-            for item in root.findall(".//item")[:8]:
+            for item in root.findall(".//item")[:10]:
                 title = item.findtext("title")
                 link = item.findtext("link")
                 pub_date = item.findtext("pubDate")
@@ -218,7 +229,7 @@ def get_news():
             continue
     if not items:
         return pd.DataFrame(columns=["Bron", "Signaal", "Titel", "Datum", "Link"])
-    return pd.DataFrame(items).drop_duplicates(subset=["Titel"]).head(24)
+    return pd.DataFrame(items).drop_duplicates(subset=["Titel"]).head(30)
 
 @st.cache_data(ttl=900, show_spinner=False)
 def get_stock_news(ticker, company_name):
@@ -296,7 +307,7 @@ def analyze_stock(ticker, macro_info):
     }
     recommendation = recommendation_map.get(recommendation_raw, "Niet beschikbaar")
 
-    # Technische score (0-10)
+    # Uitgebreide technische score (0-10)
     tech_points = 0.0
     tech_reasons = []
     if sma20 is not None:
@@ -325,7 +336,7 @@ def analyze_stock(ticker, macro_info):
             tech_points += 1.0
             tech_reasons.append("RSI sterk")
         else:
-            tech_reasons.append("RSI hoog")
+            tech_reasons.append("RSI hoog / oververhit")
     if macd_value is not None and macd_signal is not None:
         if macd_value > macd_signal:
             tech_points += 2.0
@@ -334,13 +345,13 @@ def analyze_stock(ticker, macro_info):
             tech_reasons.append("MACD onder signaallijn")
     if vol_ratio is not None and vol_ratio >= 1.3:
         tech_points += 1.0
-        tech_reasons.append("Hoog volume")
+        tech_reasons.append("Hoog handelsvolume")
     if ticker in ["THYAO.IS", "EREGL.IS", "SISE.IS", "TUPRS.IS", "FROTO.IS", "ASELS.IS"] and macro_info.get("dev_risk"):
         tech_points += 1.0
-        tech_reasons.append("Valutabuffer actief")
+        tech_reasons.append("Sterke valutabuffer actief")
     tech_score = round(min(10.0, tech_points), 1)
 
-    # Fundamentele score (0-10)
+    # Uitgebreide fundamentele score (0-10)
     fund_points = 0.0
     fund_max = 0.0
     fund_reasons = []
@@ -348,7 +359,7 @@ def analyze_stock(ticker, macro_info):
         fund_max += 2.5
         if margin > 0.10:
             fund_points += 2.5
-            fund_reasons.append("Hoge winstmarge")
+            fund_reasons.append("Hoge winstmarge (>10%)")
         elif margin > 0:
             fund_points += 1.2
             fund_reasons.append("Positieve winstmarge")
@@ -358,7 +369,7 @@ def analyze_stock(ticker, macro_info):
         fund_max += 2.5
         if revenue_growth > 0.10:
             fund_points += 2.5
-            fund_reasons.append("Sterke omzetgroei")
+            fund_reasons.append("Sterke omzetgroei (>10%)")
         elif revenue_growth > 0:
             fund_points += 1.2
             fund_reasons.append("Positieve omzetgroei")
@@ -368,7 +379,7 @@ def analyze_stock(ticker, macro_info):
         fund_max += 2.5
         if pe < 10:
             fund_points += 2.5
-            fund_reasons.append("Lage P/E (<10)")
+            fund_reasons.append("Aantrekkelijke P/E (<10)")
         elif pe < 20:
             fund_points += 1.5
             fund_reasons.append("Redelijke P/E (10-20)")
@@ -387,7 +398,7 @@ def analyze_stock(ticker, macro_info):
 
     fundamental_score = round((fund_points / fund_max) * 10.0, 1) if fund_max > 0 else None
 
-    # Nieuwsanalyse per aandeel
+    # Nieuwsanalyse integratie
     pos_news, neg_news, unc_news = get_stock_news(ticker, company)
     news_adjustment = 0.5 if len(pos_news) > len(neg_news) else (-0.7 if len(neg_news) > len(pos_news) else 0.0)
 
@@ -453,9 +464,10 @@ def analyze_stock(ticker, macro_info):
         "Fundamentele signalen": "; ".join(fund_reasons) if fund_reasons else "Geen fundamentele data"
     }
 
-# --- UI COMMAND CENTER ---
+# --- UITGEBREIDE UI ---
+
 st.title("BIST Scanner Ultimate 5.x — Command Center")
-st.caption("Geavanceerde screeningstool voor Borsa Istanbul: Quant, P/E & P/B waarderingen, S1-S3/R1-R3 niveaus en KAP-nieuwsanalyse.")
+st.caption("Professionele kwantitatieve screeningstool voor Borsa Istanbul: Quant, P/E & P/B waarderingen, S1-S3/R1-R3 niveaus en KAP-nieuwsanalyse.")
 
 with st.sidebar:
     st.header("Scaninstellingen")
@@ -465,7 +477,9 @@ with st.sidebar:
         ["Totaalscore", "Fundamentele score", "Technische score", "Rendement 1m %", "Rendement 3m %"]
     )
     min_data = st.selectbox("Datadekking filter", ["Alle resultaten", "Alleen met fundamentele data"])
-    st.caption("Controleer officiële KAP-meldingen en kwartaalrapporten altijd zelf.")
+    st.markdown("---")
+    st.subheader("Over BIST 5.x")
+    st.info("Dit command center combineert technische indicatoren, fundamentele ratios en live KAP-nieuwsstromen om sneller kansen te filteren.")
 
 macro = get_macro_data()
 m1, m2, m3 = st.columns(3)
@@ -487,7 +501,7 @@ with m3:
     )
 
 # --- BIST 100 STEUN & WEERSTAND ---
-st.subheader("BIST 100 (XU100) — Steun & Weerstand (S1–S3 & R1–R3)")
+st.subheader("BIST 100 (XU100) — Macro Steun & Weerstand (S1–S3 & R1–R3)")
 if macro["xu100_sr"]:
     bsr = macro["xu100_sr"]
     b_cols = st.columns(7)
@@ -498,9 +512,9 @@ if macro["xu100_sr"]:
     b_cols[4].metric("Weerstand R1", f"{bsr['R1']:,.0f}")
     b_cols[5].metric("Weerstand R2", f"{bsr['R2']:,.0f}")
     b_cols[6].metric("Weerstand R3", f"{bsr['R3']:,.0f}")
-    st.caption(f"**Context:** {bsr['Relevantie']}")
+    st.caption(f"**Marktcontext & Relevantie:** {bsr['Relevantie']}")
 else:
-    st.info("BIST 100 niveaus niet beschikbaar.")
+    st.info("BIST 100 niveaus momenteel niet beschikbaar.")
 
 st.divider()
 
@@ -508,11 +522,11 @@ st.divider()
 st.subheader("Geopolitieke & Macro 'Top 3' Thematische Selectie")
 col_t1, col_t2, col_t3 = st.columns(3)
 with col_t1:
-    st.info("**1. THYAO.IS & PGSUS.IS (Luchtvaart / Harde Valuta)**\n\nProfiteren van inkomsten in USD/EUR als natuurlijke devaluatie-buffer.")
+    st.info("**1. THYAO.IS & PGSUS.IS (Luchtvaart / Harde Valuta)**\n\nProfiteren direct van internationale inkomsten in USD/EUR als natuurlijke devaluatie-buffer.")
 with col_t2:
-    st.info("**2. TUPRS.IS & ASELS.IS (Energie & Defensie)**\n\nSterke positie en robuuste orderportefeuilles tijdens geopolitieke spanningen.")
+    st.info("**2. TUPRS.IS & ASELS.IS (Energie & Defensie)**\n\nSterke strategische marktpositie en robuuste orderportefeuilles tijdens geopolitieke spanningen.")
 with col_t3:
-    st.info("**3. KCHOL.IS & BIMAS.IS (Conglomeraat & Basisconsumptie)**\n\nInflatiebestendige bedrijfsmodellen en defensieve stabiliteit.")
+    st.info("**3. KCHOL.IS & BIMAS.IS (Conglomeraat & Basisconsumptie)**\n\nGediversifieerde balansen en inflatiebestendige bedrijfsmodellen voor defensieve stabiliteit.")
 
 st.divider()
 
@@ -526,17 +540,17 @@ else:
     with n_col1:
         st.markdown("#### Positieve signalen")
         pos_df = news_df[news_df["Signaal"] == "Positief"]
-        for _, item in pos_df.head(5).iterrows():
+        for _, item in pos_df.head(6).iterrows():
             st.markdown(f"- [{item['Titel']}]({item['Link']}) <br><small>{item['Bron']}</small>", unsafe_allow_html=True)
     with n_col2:
         st.markdown("#### Negatieve signalen")
         neg_df = news_df[news_df["Signaal"] == "Negatief"]
-        for _, item in neg_df.head(5).iterrows():
+        for _, item in neg_df.head(6).iterrows():
             st.markdown(f"- [{item['Titel']}]({item['Link']}) <br><small>{item['Bron']}</small>", unsafe_allow_html=True)
     with n_col3:
-        st.markdown("#### Te controleren")
+        st.markdown("#### Te controleren / Onduidelijk")
         unc_df = news_df[news_df["Signaal"] == "Onduidelijk / Te controleren"]
-        for _, item in unc_df.head(5).iterrows():
+        for _, item in unc_df.head(6).iterrows():
             st.markdown(f"- [{item['Titel']}]({item['Link']}) <br><small>{item['Bron']}</small>", unsafe_allow_html=True)
 
 st.divider()
