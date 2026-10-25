@@ -11,12 +11,12 @@ import xml.etree.ElementTree as ET
 from datetime import datetime, timedelta
 
 # ==============================================================================
-# BIST SCANNER ULTIMATE 5.7 — 8-AGENT ENTERPRISE COMMAND CENTER (FULL BIST 100)
-# VOLLEDIGE UITVOERING: ALLE 100 BIST 100 AANDELEN, GEEN AFKORTINGEN, 8 AGENTS
+# BIST 30 SCANNER ULTIMATE 5.7 — 8-AGENT ENTERPRISE COMMAND CENTER
+# VOLLEDIGE UITVOERING: ALLE 30 BIST 30 AANDELEN, GEEN AFKORTINGEN, 8 AGENTS
 # ==============================================================================
 
 st.set_page_config(
-    page_title="BIST 100 Scanner Ultimate 5.7 — 8-Agent Command Center",
+    page_title="BIST 30 Scanner Ultimate 5.7 — 8-Agent Command Center",
     layout="wide",
     initial_sidebar_state="expanded"
 )
@@ -72,165 +72,95 @@ st.markdown(
 )
 
 # ==============================================================================
-# 1. VOLLEDIGE BIST 100 (100 AANDELEN), BIST 30, SECTOREN & TREFWOORDEN
+# 1. VOLLEDIGE BIST 30 (EXACT 30 HOOFDAANDELEN), SECTOREN & BEDRIJFSPROFIELEN
 # ==============================================================================
 
 WATCHLIST = [
     # 1 - 10
-    "AEFES.IS", "AGHOL.IS", "AGROT.IS", "AHGAZ.IS", "AKBNK.IS",
-    "AKCNS.IS", "AKFGY.IS", "AKFYE.IS", "AKSA.IS", "AKSEN.IS",
-    # 11 - 20
-    "ALARK.IS", "ALBRK.IS", "ALFAS.IS", "ALTNY.IS", "ANSGR.IS",
-    "ARCLK.IS", "ARDYZ.IS", "ASELS.IS", "ASTOR.IS", "BERA.IS",
-    # 21 - 30
-    "BFREN.IS", "BIMAS.IS", "BINHO.IS", "BRSAN.IS", "BRYAT.IS",
-    "BTCIM.IS", "CANTE.IS", "CCOLA.IS", "CIMSA.IS", "CLEBI.IS",
-    # 31 - 40
-    "CWENE.IS", "DOAS.IS", "DOHOL.IS", "ECILC.IS", "ECZYT.IS",
-    "EGEEN.IS", "EKGYO.IS", "ENERY.IS", "ENJSA.IS", "ENKAI.IS",
-    # 41 - 50
-    "EREGL.IS", "EUPWR.IS", "EUREN.IS", "FROTO.IS", "GARAN.IS",
-    "GESAN.IS", "GUBRF.IS", "GWIND.IS", "HALKB.IS", "HEKTS.IS",
-    # 51 - 60
-    "IPEKE.IS", "ISCTR.IS", "ISDMR.IS", "ISGYO.IS", "ISMEN.IS",
-    "KAYSE.IS", "KCAER.IS", "KCHOL.IS", "KLSER.IS", "KONTR.IS",
-    # 61 - 70
-    "KONYA.IS", "KOZAA.IS", "KOZAL.IS", "KRDMD.IS", "MAVI.IS",
-    "MGROS.IS", "MIATK.IS", "ODAS.IS", "OTKAR.IS", "OYAKC.IS",
-    # 71 - 80
-    "PETKM.IS", "PGSUS.IS", "QUAGR.IS", "REEDR.IS", "SAHOL.IS",
-    "SASA.IS", "SDTTR.IS", "SISE.IS", "SKBNK.IS", "SMRTG.IS",
-    # 81 - 90
-    "SOKM.IS", "TABGD.IS", "TAVHL.IS", "TCELL.IS", "THYAO.IS",
-    "TKFEN.IS", "TOASO.IS", "TSKB.IS", "TTKOM.IS", "TTRAK.IS",
-    # 91 - 100
-    "TUPRS.IS", "TURSG.IS", "ULKER.IS", "VAKBN.IS", "VESBE.IS",
-    "VESTL.IS", "YEOTK.IS", "YKBNK.IS", "YYLGD.IS", "ZOREN.IS"
-]
-
-BIST30_LIST = [
     "AKBNK.IS", "ALARK.IS", "ARCLK.IS", "ASELS.IS", "ASTOR.IS",
-    "BIMAS.IS", "BRSAN.IS", "DOAS.IS", "EKGYO.IS", "ENKAI.IS",
-    "EREGL.IS", "FROTO.IS", "GARAN.IS", "GUBRF.IS", "HEKTS.IS",
-    "ISCTR.IS", "KCHOL.IS", "KONTR.IS", "KOZAL.IS", "KRDMD.IS",
-    "MGROS.IS", "OYAKC.IS", "PETKM.IS", "PGSUS.IS", "SAHOL.IS",
-    "SASA.IS", "SISE.IS", "TCELL.IS", "THYAO.IS", "TUPRS.IS"
+    "BIMAS.IS", "DOAS.IS", "EKGYO.IS", "ENKAI.IS", "EREGL.IS",
+    # 11 - 20
+    "FROTO.IS", "GARAN.IS", "HEKTS.IS", "ISCTR.IS", "KCHOL.IS",
+    "KONTR.IS", "KOZAL.IS", "KRDMD.IS", "MGROS.IS", "PETKM.IS",
+    # 21 - 30
+    "PGSUS.IS", "SAHOL.IS", "SASA.IS", "SISE.IS", "TAVHL.IS",
+    "TCELL.IS", "THYAO.IS", "TOASO.IS", "TUPRS.IS", "YKBNK.IS"
 ]
 
 SECTOR_MAP = {
-    "AEFES.IS": "Dranken & Internationaal",
-    "AGHOL.IS": "Conglomeraat & Holding",
-    "AGROT.IS": "Agrarische Technologie",
-    "AHGAZ.IS": "Aardgas & Distributie",
     "AKBNK.IS": "Banken & Financieel",
-    "AKCNS.IS": "Cement & Bouwmaterialen",
-    "AKFGY.IS": "Vastgoed (GYO)",
-    "AKFYE.IS": "Duurzame Energie",
-    "AKSA.IS": "Chemie & Textielgrondstoffen",
-    "AKSEN.IS": "Energieproductie",
-    "ALARK.IS": "Conglomeraat, Energie & Bouw",
-    "ALBRK.IS": "Banken & Financieel",
-    "ALFAS.IS": "Zonne-energie & Panelen",
-    "ALTNY.IS": "Defensie & Robotica",
-    "ANSGR.IS": "Verzekeringen",
+    "ALARK.IS": "Conglomeraat, Energie & Landbouw",
     "ARCLK.IS": "Consumentenelektronica & Export",
-    "ARDYZ.IS": "Software & IT",
     "ASELS.IS": "Defensie & Hoogtechnologie",
     "ASTOR.IS": "Energietechniek & Transformatoren",
-    "BERA.IS": "Conglomeraat & Industrie",
-    "BFREN.IS": "Automotive Toelevering",
-    "BIMAS.IS": "Supermarkten & Retail",
-    "BINHO.IS": "Investeringsholding",
-    "BRSAN.IS": "Stalen Buizen & Export",
-    "BRYAT.IS": "Investeringsholding",
-    "BTCIM.IS": "Cement & Bouwmaterialen",
-    "CANTE.IS": "Energieproductie",
-    "CCOLA.IS": "Dranken & Internationaal",
-    "CIMSA.IS": "Cement & Export",
-    "CLEBI.IS": "Luchtvaartafhandeling",
-    "CWENE.IS": "Zonne-energie & Techniek",
+    "BIMAS.IS": "Supermarkten & Defensieve Retail",
     "DOAS.IS": "Automotive Distributie",
-    "DOHOL.IS": "Conglomeraat & Holding",
-    "ECILC.IS": "Farmacie & Gezondheid",
-    "ECZYT.IS": "Investeringsholding",
-    "EGEEN.IS": "Automotive Toelevering & Export",
     "EKGYO.IS": "Vastgoed (GYO)",
-    "ENERY.IS": "Aardgas & Energie",
-    "ENJSA.IS": "Energiedistributie & Nutsbedrijf",
     "ENKAI.IS": "Bouw, Energie & Valutareserves",
     "EREGL.IS": "Staal & Zware Industrie",
-    "EUPWR.IS": "Energietechniek & Systemen",
-    "EUREN.IS": "Bouwmaterialen & Glas/PVC",
-    "FROTO.IS": "Automotive & Export",
+    "FROTO.IS": "Automotive & Europese Export",
     "GARAN.IS": "Banken & Financieel",
-    "GESAN.IS": "Energietechniek & Netwerken",
-    "GUBRF.IS": "Kunstmest & Grondstoffen",
-    "GWIND.IS": "Duurzame Wind- & Zonne-energie",
-    "HALKB.IS": "Banken & Financieel",
     "HEKTS.IS": "Agrochemie & Landbouw",
-    "IPEKE.IS": "Energie & Mijnbouw",
     "ISCTR.IS": "Banken & Financieel",
-    "ISDMR.IS": "Staal & Zware Industrie",
-    "ISGYO.IS": "Vastgoed (GYO)",
-    "ISMEN.IS": "Brokerage & Kapitaalmarkten",
-    "KAYSE.IS": "Voeding & Suikerindustrie",
-    "KCAER.IS": "Staalprofielen & Export",
     "KCHOL.IS": "Conglomeraat & Holding",
-    "KLSER.IS": "Keramiek & Bouwmaterialen",
-    "KONTR.IS": "Technologie, Ruimtevaart & Energie",
-    "KONYA.IS": "Cement & Bouwmaterialen",
-    "KOZAA.IS": "Mijnbouw & Grondstoffen",
+    "KONTR.IS": "Technologie, Ruimtevaart & Energieopslag",
     "KOZAL.IS": "Goud & Edelmetalen",
-    "KRDMD.IS": "Staal & Zware Industrie",
-    "MAVI.IS": "Kleding & Retail",
-    "MGROS.IS": "Supermarkten & Retail",
-    "MIATK.IS": "Software, AI & Technologie",
-    "ODAS.IS": "Elektriciteit & Mijnbouw",
-    "OTKAR.IS": "Defensievoertuigen & Bussen",
-    "OYAKC.IS": "Cement & Bouwmaterialen",
-    "PETKM.IS": "Petrochemie & Industrie",
-    "PGSUS.IS": "Luchtvaart & Transport",
-    "QUAGR.IS": "Graniet, Keramiek & Export",
-    "REEDR.IS": "Consumentenelektronica & Telefoons",
+    "KRDMD.IS": "Staal & Spoorwegindustrie",
+    "MGROS.IS": "Supermarkten & Voedingsretail",
+    "PETKM.IS": "Petrochemie & Basisindustrie",
+    "PGSUS.IS": "Luchtvaart & Toerisme (Harde Valuta)",
     "SAHOL.IS": "Conglomeraat & Holding",
-    "SASA.IS": "Polyester & Petrochemie",
-    "SDTTR.IS": "Defensie & Ruimtevaarttechniek",
-    "SISE.IS": "Glas, Chemie & Export",
-    "SKBNK.IS": "Banken & Financieel",
-    "SMRTG.IS": "Zonne-energie & Techniek",
-    "SOKM.IS": "Supermarkten & Retail",
-    "TABGD.IS": "Restaurants & Voeding",
-    "TAVHL.IS": "Luchtvaart & Luchthavens",
-    "TCELL.IS": "Telecom & Technologie",
-    "THYAO.IS": "Luchtvaart & Transport",
-    "TKFEN.IS": "Bouw, Engineering & Kunstmest",
-    "TOASO.IS": "Automotive & Productie",
-    "TSKB.IS": "Ontwikkelings- & Investeringsbank",
-    "TTKOM.IS": "Telecom & Technologie",
-    "TTRAK.IS": "Landbouwmechanisatie",
+    "SASA.IS": "Polyester, Polymeren & Petrochemie",
+    "SISE.IS": "Glas, Chemie & Wereldwijde Export",
+    "TAVHL.IS": "Luchthavenexploitatie (Harde Valuta)",
+    "TCELL.IS": "Telecom, Data & FinTech",
+    "THYAO.IS": "Luchtvaart & Vracht (Harde Valuta)",
+    "TOASO.IS": "Automotive Productie",
     "TUPRS.IS": "Energie & Raffinage",
-    "TURSG.IS": "Verzekeringen",
-    "ULKER.IS": "Voeding & Export",
-    "VAKBN.IS": "Banken & Financieel",
-    "VESBE.IS": "Consumentenelektronica & Export",
-    "VESTL.IS": "Consumentenelektronica & Export",
-    "YEOTK.IS": "Energietechniek & Automatisering",
-    "YKBNK.IS": "Banken & Financieel",
-    "YYLGD.IS": "Voeding & Agrarische Export",
-    "ZOREN.IS": "Energie & Geothermie"
+    "YKBNK.IS": "Banken & Financieel"
+}
+
+BIST30_PROFILES = {
+    "AKBNK.IS": "Grootbank met sterke kapitaalbuffer (CAR) en hoge liquiditeit in de BIST 30.",
+    "ALARK.IS": "Gediversifieerde holding met focus op elektriciteit, energie en grootschalige agrotechniek.",
+    "ARCLK.IS": "Internationale witgoed- en elektronicaproducent (o.a. Beko/Whirlpool Europa) met hoge exportomzet.",
+    "ASELS.IS": "Marktleider in Turkse defensie-elektronica, radar, communicatie en lange-termijn staatsorders in USD/EUR.",
+    "ASTOR.IS": "Grote producent van hoogspanningstransformatoren en schakelapparatuur met sterke exportgroei.",
+    "BIMAS.IS": "Grootste discount-supermarktketen van Turkije; sterk inflatiebestendig door hoge omloopsnelheid.",
+    "DOAS.IS": "Exclusieve distributeur van o.a. Volkswagen, Audi, Porsche en Skoda in Turkije.",
+    "EKGYO.IS": "Grootste vastgoedontwikkelaar (GYO) van Turkije; sterk gevoelig voor renteverlagingen van de TCMB.",
+    "ENKAI.IS": "Internationaal bouw- en energieconcern met een miljardenbuffer aan netto kas in harde valuta (USD).",
+    "EREGL.IS": "Grootste vlakstaalproducent van Turkije; productprijzen zijn direct gekoppeld aan mondiale USD-staalprijzen.",
+    "FROTO.IS": "Joint venture met Ford; grootste commerciële voertuigenexporteur van Turkije met cost-plus EUR-contracten.",
+    "GARAN.IS": "Toonaangevende particuliere en zakelijke bank (meerderheidsbelang BBVA) met sterke rentemarges.",
+    "HEKTS.IS": "Producent van gewasbescherming, zaden en meststoffen (OYAK-groep); herstructurerings- en schuldverlagingsfokus.",
+    "ISCTR.IS": "Grootste private bank van Turkije met brede industriële deelnemingen (o.a. Şişecam).",
+    "KCHOL.IS": "Grootste industriële en financiële holding van Turkije (energie, auto's, banken, duurzame goederen).",
+    "KONTR.IS": "Hoogtechnologisch ingenieursbedrijf actief in energieopslag, satellieten en elektrificatie.",
+    "KOZAL.IS": "Goudmijnbedrijf zonder financiële schulden; profiteert direct van een stijgende goudprijs in USD en TRY.",
+    "KRDMD.IS": "Geïntegreerde producent van langstaal en spoorrails; profiteert van infrastructuur- en wederopbouwprojecten.",
+    "MGROS.IS": "Toonaangevende supermarktketen met sterke vrije kasstroom, netto kaspositie en groeiende online-omzet.",
+    "PETKM.IS": "Enige geïntegreerde petrochemische producent in Turkije (SOCAR-groep); afhankelijk van nafta-ethyleen spreads.",
+    "PGSUS.IS": "Snelgroeiende low-cost luchtvaartmaatschappij met een van de hoogste EBITDA-marges en harde-valuta-inkomsten.",
+    "SAHOL.IS": "Grote holding met kernposities in bankwezen (Akbank), energie (Enerjisa), cement en retail.",
+    "SASA.IS": "Grote producent van polyestervezels, filamenten en PTA; heeft zware kapitaalinvesteringen afgerond.",
+    "SISE.IS": "Wereldspeler in vlakglas, verpakkingsglas en natriumcarbonaat (soda ash) met meer dan 60% internationale omzet.",
+    "TAVHL.IS": "Exploitant van internationale luchthavens (Aéroports de Paris-groep) met inkomsten in EUR en USD.",
+    "TCELL.IS": "Marktleider in mobiele telecommunicatie, glasvezel, datacenters en digitale betaaldiensten (Paycell).",
+    "THYAO.IS": "Turkish Airlines; wereldwijde luchtvaart- en vrachtreus waarbij ruim 85% van de omzet in harde valuta binnenkomt.",
+    "TOASO.IS": "Autofabrikant (Koç & Stellantis samenwerking) gericht op personen- en lichte bedrijfswagens.",
+    "TUPRS.IS": "Grootste olieraffinaderij van Turkije; sterke balans, hoge dividendcapaciteit en USD-gekoppelde raffinagemarges.",
+    "YKBNK.IS": "Grote commerciële bank binnen de Koç-groep met sterke positie in creditcards en bedrijfsfinanciering."
 }
 
 HARD_CURRENCY_EXPORTERS = {
-    "THYAO.IS", "PGSUS.IS", "TAVHL.IS", "CLEBI.IS", "EREGL.IS",
-    "ISDMR.IS", "KCAER.IS", "BRSAN.IS", "SISE.IS", "TUPRS.IS",
-    "FROTO.IS", "TOASO.IS", "EGEEN.IS", "OTKAR.IS", "ASELS.IS",
-    "ALTNY.IS", "SDTTR.IS", "ENKAI.IS", "ARCLK.IS", "VESBE.IS",
-    "VESTL.IS", "KOZAL.IS", "KOZAA.IS", "CIMSA.IS", "ASTOR.IS",
-    "EUPWR.IS", "GESAN.IS", "KONTR.IS", "AEFES.IS", "CCOLA.IS"
+    "ARCLK.IS", "ASELS.IS", "ASTOR.IS", "ENKAI.IS", "EREGL.IS",
+    "FROTO.IS", "KCHOL.IS", "KONTR.IS", "KOZAL.IS", "PGSUS.IS",
+    "SISE.IS", "TAVHL.IS", "THYAO.IS", "TOASO.IS", "TUPRS.IS"
 }
 
 NEWS_URLS = [
-    ("Google Nieuws — Turkije Economie & BIST", "https://news.google.com/rss/search?q=Turkiye+ekonomi+Borsa+Istanbul&hl=tr&gl=TR&ceid=TR:tr"),
+    ("Google Nieuws — Turkije Economie & BIST 30", "https://news.google.com/rss/search?q=Turkiye+ekonomi+Borsa+Istanbul+BIST30&hl=tr&gl=TR&ceid=TR:tr"),
     ("Google Nieuws — SPK, Boetes & Onderzoeken", "https://news.google.com/rss/search?q=SPK+fon+borsa+inceleme+ceza&hl=tr&gl=TR&ceid=TR:tr"),
     ("Google Nieuws — KAP & Kwartaalcijfers", "https://news.google.com/rss/search?q=BIST+KAP+sirket+bilanco+kar+zarar+temettu&hl=tr&gl=TR&ceid=TR:tr"),
     ("Google Nieuws — TCMB Rente & Inflatie", "https://news.google.com/rss/search?q=TCMB+faiz+enflasyon+Merkez+Bankasi&hl=tr&gl=TR&ceid=TR:tr"),
@@ -462,12 +392,16 @@ def calculate_sr_levels(hist):
 
 @st.cache_data(ttl=900, show_spinner=False)
 def get_macro_data():
-    """Haalt alle macro-indicatoren en de volledige BIST 100 (XU100) analyse op."""
+    """Haalt alle macro-indicatoren én zowel de BIST 30 (XU030) als BIST 100 (XU100) analyse op."""
     output = {
         "usd_try": None,
         "usd_try_change_1m": None,
         "eur_try": None,
         "dev_risk": False,
+        "xu030_price": None,
+        "xu030_return_1m": None,
+        "xu030_return_3m": None,
+        "xu030_sr": None,
         "xu100_price": None,
         "xu100_return_1m": None,
         "xu100_return_3m": None,
@@ -495,6 +429,19 @@ def get_macro_data():
         eur = get_history("EURTRY=X", "1mo")
         if not eur.empty:
             output["eur_try"] = safe_float(eur["Close"].iloc[-1])
+    except Exception:
+        pass
+
+    try:
+        m30 = get_history("XU030.IS", "1y")
+        if len(m30) >= 5:
+            c30 = m30["Close"].astype(float)
+            output["xu030_price"] = safe_float(c30.iloc[-1])
+            if len(c30) >= 22:
+                output["xu030_return_1m"] = float((c30.iloc[-1] / c30.iloc[-22] - 1.0) * 100.0)
+            idx30 = max(0, len(c30) - 64)
+            output["xu030_return_3m"] = float((c30.iloc[-1] / c30.iloc[idx30] - 1.0) * 100.0)
+            output["xu030_sr"] = calculate_sr_levels(m30)
     except Exception:
         pass
 
@@ -627,9 +574,9 @@ def get_stock_news(ticker, company_name):
     pos_list, neg_list, unc_list = [], [], []
     try:
         req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
-        with urllib.request.urlopen(req, timeout=4) as response:
+        with urllib.request.urlopen(req, timeout=5) as response:
             root = ET.fromstring(response.read())
-        for item in root.findall(".//item")[:6]:
+        for item in root.findall(".//item")[:8]:
             title = item.findtext("title")
             pub_date = item.findtext("pubDate") or ""
             link = item.findtext("link") or ""
@@ -654,7 +601,7 @@ def call_gemini_kap_agent(ticker, company, fund_summary, q_metrics, headlines_tu
     try:
         headlines_text = "\n".join([f"- {h}" for h in headlines_tuple]) if headlines_tuple else "Geen recente headlines."
         prompt = f"""
-Je bent een senior kwantitatief en fundamenteel analist voor Borsa Istanbul (BIST).
+Je bent een senior kwantitatief en fundamenteel analist voor Borsa Istanbul (BIST 30).
 Analyseer {company} ({ticker}) op basis van de onderstaande volledige cijfers en Turkse KAP/nieuwsberichten.
 USD/TRY koers: {usd_try}
 Fundamenteel: {json.dumps(fund_summary, ensure_ascii=False)}
@@ -693,7 +640,7 @@ Geef een zakelijke Nederlandse analyse in JSON met exact deze velden:
 
 
 # ==============================================================================
-# 4. DE 8 VOLLEDIG ZELFSTANDIGE AUTONOME AI-AGENTS (ENTERPRISE ARCHITECTUUR)
+# 4. DE 8 VOLLEDIG ZELFSTANDIGE AUTONOME AI-AGENTS (BIST 30 ENTERPRISE)
 # ==============================================================================
 
 def agent_1_multi_timeframe_quant(ticker, hist_daily, sr_info):
@@ -913,17 +860,13 @@ def agent_2_fundamental_quarterly_valuation(info, q_metrics):
     }
 
 
-def agent_3_kap_and_news_intelligence(ticker, company, fund_res, q_metrics, macro_info, fetch_rss=True, api_key=None, use_ai=False):
+def agent_3_kap_and_news_intelligence(ticker, company, fund_res, q_metrics, macro_info, api_key=None, use_ai=False):
     """
     AGENT 3: KAP-Meldingen, SPK & Bedrijfsnieuws Klassificatie Agent.
     Categoriseert nieuws in Positieve signalen, Negatieve signalen en Te controleren meldingen,
     aangevuld met optionele Gemini AI-duiding.
     """
-    if fetch_rss:
-        pos_news, neg_news, unc_news = get_stock_news(ticker, company)
-    else:
-        pos_news, neg_news, unc_news = [], [], []
-
+    pos_news, neg_news, unc_news = get_stock_news(ticker, company)
     headlines_tuple = tuple([n["titel"] for n in (pos_news + neg_news + unc_news)])
 
     ai_data = None
@@ -949,11 +892,7 @@ def agent_3_kap_and_news_intelligence(ticker, company, fund_res, q_metrics, macr
         sentiment = str(ai_data.get("sentiment_label", "Neutraal (AI)"))
         summary_reason = f"Gemini AI ({sentiment}): {ai_data.get('kap_duiding', '')}"
     else:
-        if not fetch_rss:
-            adjustment = 0.0
-            sentiment = "Snelle Modus (RSS overgeslagen)"
-            summary_reason = "Per-aandeel RSS overgeslagen voor turbosnelheid op 100 aandelen."
-        elif len(pos_news) > len(neg_news):
+        if len(pos_news) > len(neg_news):
             adjustment = min(0.8, 0.35 * (len(pos_news) - len(neg_news)))
             sentiment = "Positief (KAP/Nieuws)"
             summary_reason = f"{len(pos_news)} positieve KAP/nieuws-signalen tegenover {len(neg_news)} negatieve."
@@ -980,7 +919,7 @@ def agent_3_kap_and_news_intelligence(ticker, company, fund_res, q_metrics, macr
 def agent_4_macro_fx_devaluation_buffer(ticker, sector, macro_info):
     """
     AGENT 4: Macro, Rente & USD/TRY Devaluatie-Buffer Agent.
-    Beoordeelt hoe het aandeel reageert op lira-devaluatie, olieprijzen en het BIST 100 klimaat.
+    Beoordeelt hoe het BIST 30-aandeel reageert op lira-devaluatie, olieprijzen en het indexklimaat.
     """
     dev_risk = macro_info.get("dev_risk", False)
     is_exporter = ticker in HARD_CURRENCY_EXPORTERS
@@ -995,9 +934,9 @@ def agent_4_macro_fx_devaluation_buffer(ticker, sector, macro_info):
             reasons.append("Sterke USD/EUR devaluatie-buffer actief: internationaal verdienmodel beschermt marges")
         else:
             adj += 0.4
-            reasons.append("Structurele harde-valuta inkomsten en exportpositie")
+            reasons.append("Structurele harde-valuta inkomsten en exportpositie binnen de BIST 30")
     else:
-        if dev_risk and sector in ["Vastgoed (GYO)", "Telecom & Technologie"]:
+        if dev_risk and sector in ["Vastgoed (GYO)", "Telecom, Data & FinTech"]:
             adj -= 0.3
             reasons.append("Binnenlands lira-verdienmodel is gevoeliger voor valuta- en renteschokken")
         else:
@@ -1005,10 +944,10 @@ def agent_4_macro_fx_devaluation_buffer(ticker, sector, macro_info):
 
     if bist_pos:
         adj += 0.2
-        reasons.append("Brede BIST 100 index zit in een ondersteunende opwaartse trend")
+        reasons.append("Brede Borsa Istanbul index zit in een ondersteunende opwaartse trend")
     else:
         adj -= 0.2
-        reasons.append("Brede BIST 100 index vertoont tegenwind; extra selectiviteit vereist")
+        reasons.append("Brede Borsa Istanbul index vertoont tegenwind; extra selectiviteit vereist")
 
     return {
         "adjustment": round(adj, 2),
@@ -1049,7 +988,7 @@ def agent_5_debt_liquidity_interest_stress(info, q_metrics):
             adj -= 0.8
             reasons.append(f"Hoge schuldenlast (Debt/Equity: {format_full_percentage(debt_to_equity, 2)}) — kwetsbaar voor hoge rentekosten")
     else:
-        reasons.append("Geen Debt/Equity ratio beschikbaar (of financiële instelling)")
+        reasons.append("Geen Debt/Equity ratio beschikbaar (of financiële instelling/bank)")
 
     if current_ratio is not None:
         if current_ratio >= 1.4:
@@ -1090,7 +1029,7 @@ def agent_6_insider_buyback_dividend_structure(info, pos_news):
         reasons.append(f"Vrije omloop (Free Float): {format_full_percentage(free_float_pct, 2)} van {format_full_integer(shares_out)} aandelen")
         if 15.0 <= free_float_pct <= 45.0:
             adj += 0.2
-            reasons.append("Gezonde free-float structuur")
+            reasons.append("Gezonde institutionele free-float structuur")
 
     if div_yield is not None and div_yield > 0:
         dy_pct = div_yield * 100.0 if div_yield < 1.0 else div_yield
@@ -1106,10 +1045,10 @@ def agent_6_insider_buyback_dividend_structure(info, pos_news):
         reasons.append("Actief aandeleninkoopprogramma (Geri Alım) gedetecteerd in recente KAP-berichten")
 
     if held_insiders is not None and held_insiders > 0:
-        reasons.append(f"Strategisch/Insider bezit: {format_full_percentage(held_insiders * 100.0, 2)}")
+        reasons.append(f"Strategisch/Moedermaatschappij bezit: {format_full_percentage(held_insiders * 100.0, 2)}")
 
     if not reasons:
-        reasons.append("Standaard BIST aandelen- en eigendomsstructuur")
+        reasons.append("Standaard BIST 30 aandelen- en eigendomsstructuur")
 
     return {
         "adjustment": round(adj, 2),
@@ -1148,7 +1087,7 @@ def agent_7_independent_risk_and_factcheck_auditor(tech_res, fund_res, news_res,
         setup_type = "Sterke Kwaliteitstrend & Positief Momentum"
         risk_level = "Laag tot Gemiddeld (Trendvolgend)"
     else:
-        setup_type = "Neutraal / Volgen op Watchlist"
+        setup_type = "Neutraal / Volgen op BIST 30 Watchlist"
         risk_level = "Gemiddeld"
 
     audit_notes = [
@@ -1185,7 +1124,7 @@ def agent_8_execution_portfolio_telegram_dispatcher(ticker, company, price, sr_i
     alert_msg = None
     if overall_score >= 7.2:
         alert_msg = (
-            f"🚨 [BIST 5.7 TOP SIGNAL] {company} ({ticker}) | "
+            f"🚨 [BIST 30 TOP SIGNAL] {company} ({ticker}) | "
             f"Score: {format_full_number(overall_score, 1, '')}/10 | "
             f"Setup: {setup_type} | "
             f"Koers: {format_full_number(price, 2)} | "
@@ -1228,7 +1167,7 @@ def send_telegram_alert(bot_token, chat_id, message_text):
 # 5. HOOFD-ANALYSE ENGINE & HISTORISCHE BACKTEST MODULE
 # ==============================================================================
 
-def analyze_stock_enterprise(ticker, macro_info, fetch_rss=True, api_key=None, use_ai=False):
+def analyze_stock_enterprise(ticker, macro_info, api_key=None, use_ai=False):
     hist = get_history(ticker, "1y")
     if hist.empty or len(hist) < 30:
         return None
@@ -1248,7 +1187,8 @@ def analyze_stock_enterprise(ticker, macro_info, fetch_rss=True, api_key=None, u
         info = {}
 
     company = str(info.get("longName") or info.get("shortName") or ticker)
-    sector = SECTOR_MAP.get(ticker, str(info.get("sector") or "BIST 100 Algemeen"))
+    sector = SECTOR_MAP.get(ticker, str(info.get("sector") or "BIST 30 Kernsector"))
+    profile_desc = BIST30_PROFILES.get(ticker, "Hoofdfonds binnen de BIST 30 index op Borsa Istanbul.")
 
     sr_info = calculate_sr_levels(hist)
     q_metrics = get_quarterly_and_balance_metrics(ticker)
@@ -1256,7 +1196,7 @@ def analyze_stock_enterprise(ticker, macro_info, fetch_rss=True, api_key=None, u
     # Voer alle 8 autonome AI-Agents achter elkaar uit
     a1 = agent_1_multi_timeframe_quant(ticker, hist, sr_info)
     a2 = agent_2_fundamental_quarterly_valuation(info, q_metrics)
-    a3 = agent_3_kap_and_news_intelligence(ticker, company, a2, q_metrics, macro_info, fetch_rss, api_key, use_ai)
+    a3 = agent_3_kap_and_news_intelligence(ticker, company, a2, q_metrics, macro_info, api_key, use_ai)
     a4 = agent_4_macro_fx_devaluation_buffer(ticker, sector, macro_info)
     a5 = agent_5_debt_liquidity_interest_stress(info, q_metrics)
     a6 = agent_6_insider_buyback_dividend_structure(info, a3["pos_news"])
@@ -1297,6 +1237,7 @@ def analyze_stock_enterprise(ticker, macro_info, fetch_rss=True, api_key=None, u
         "Bedrijf": company,
         "Ticker": ticker,
         "Sector": sector,
+        "Profiel": profile_desc,
         # Numerieke waarden voor sortering en berekening
         "_price_num": price,
         "_total_score_num": overall_score,
@@ -1374,7 +1315,7 @@ def analyze_stock_enterprise(ticker, macro_info, fetch_rss=True, api_key=None, u
 @st.cache_data(ttl=900, show_spinner=False)
 def run_historical_backtest(ticker, holding_days=10):
     """
-    Voert een historische backtest uit op de afgelopen 12 maanden voor het gekozen aandeel:
+    Voert een historische backtest uit op de afgelopen 12 maanden voor het gekozen BIST 30-aandeel:
     Koopsignaal wanneer Koers > SMA50 én RSI tussen 35 en 60 kruist.
     """
     hist = get_history(ticker, "1y")
@@ -1427,53 +1368,23 @@ def run_historical_backtest(ticker, holding_days=10):
 
 
 # ==============================================================================
-# 6. STREAMLIT MULTI-TAB ENTERPRISE UI (VOLLEDIGE BIST 100)
+# 6. STREAMLIT MULTI-TAB ENTERPRISE UI (VOLLEDIGE BIST 30 EDITIE)
 # ==============================================================================
 
-st.title("🏛️ BIST 100 Scanner Ultimate 5.7 — 8-Agent Enterprise Command Center")
+st.title("🏛️ BIST 30 Scanner Ultimate 5.7 — 8-Agent Enterprise Command Center")
 st.caption(
-    "Scant standaard alle 100 aandelen van de BIST 100 (XU100) · "
+    "Scant standaard alle 30 hoofdaandelen van de BIST 30 (XU030) · "
     "Volledig uitgeschreven getallen (geen afkortingen of afkappingen) · "
-    "S1–S3 & R1–R3 voor BIST 100 én elk aandeel · 8 Zelfstandige AI-Agents."
+    "S1–S3 & R1–R3 voor BIST 30, BIST 100 én elk aandeel · 8 Zelfstandige AI-Agents."
 )
 
 with st.sidebar:
-    st.header("⚙️ BIST 100 Scan Instellingen")
-    selection_mode = st.radio(
-        "Kies Aandelenuniversum:",
-        [
-            "Volledige BIST 100 (Alle 100 aandelen)",
-            "BIST 30 Kernselectie (30 aandelen)",
-            "Handmatige selectie"
-        ],
-        index=0
+    st.header("⚙️ BIST 30 Scan Instellingen")
+    universe = st.multiselect(
+        f"BIST 30 Aandelenuniversum ({len(WATCHLIST)} hoofdaandelen):",
+        options=WATCHLIST,
+        default=WATCHLIST
     )
-
-    if selection_mode == "Volledige BIST 100 (Alle 100 aandelen)":
-        universe = st.multiselect(
-            f"Geselecteerde BIST 100-aandelen ({len(WATCHLIST)} totaal):",
-            options=WATCHLIST,
-            default=WATCHLIST
-        )
-    elif selection_mode == "BIST 30 Kernselectie (30 aandelen)":
-        universe = st.multiselect(
-            "Geselecteerde BIST 30-aandelen:",
-            options=WATCHLIST,
-            default=BIST30_LIST
-        )
-    else:
-        universe = st.multiselect(
-            "Kies handmatig BIST-aandelen:",
-            options=WATCHLIST,
-            default=WATCHLIST
-        )
-
-    fetch_per_stock_rss = st.toggle(
-        "Haal per aandeel live KAP/Google RSS-nieuws op (Agent 3)",
-        value=True,
-        help="Staat standaard AAN voor maximale diepgang op alle 100 aandelen. Zet uit als je een supersnelle technische + fundamentele scan wilt."
-    )
-
     sort_choice = st.selectbox(
         "Rangschikken op:",
         [
@@ -1486,7 +1397,7 @@ with st.sidebar:
     )
     min_data_filter = st.selectbox(
         "Datadekking filter:",
-        ["Alle geanalyseerde aandelen", "Alleen met volledige fundamentele data"]
+        ["Alle geanalyseerde BIST 30-aandelen", "Alleen met volledige fundamentele data"]
     )
 
     st.divider()
@@ -1513,8 +1424,8 @@ with st.sidebar:
 macro = get_macro_data()
 
 tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
-    "📊 1. Macro, BIST 100 & Top 3 Thema's",
-    "🏆 2. Volledige BIST 100 Scan & Top 10",
+    "📊 1. Macro, BIST 30 / 100 & Top 3 Thema's",
+    "🏆 2. Volledige BIST 30 Scan & Top 10",
     "📐 3. Steun & Weerstand Matrix (S1-S3 / R1-R3)",
     "🤖 4. Diepte-Analyse per Aandeel (8 Agents)",
     "📰 5. KAP, SPK & Marktnieuws Monitor",
@@ -1522,10 +1433,10 @@ tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
 ])
 
 # ------------------------------------------------------------------------------
-# TAB 1: MACRO, BIST 100 (VOLLEDIGE GETALLEN) & TOP 3 THEMATISCHE SELECTIE
+# TAB 1: MACRO, BIST 30 & BIST 100 (VOLLEDIGE GETALLEN) & TOP 3 THEMA'S
 # ------------------------------------------------------------------------------
 with tab1:
-    st.subheader("Actueel Macro-, Valuta- & BIST 100 Overzicht (Volledig Uitgeschreven)")
+    st.subheader("Actueel Macro-, Valuta-, BIST 30 & BIST 100 Overzicht (Volledig Uitgeschreven)")
 
     mc1, mc2, mc3, mc4 = st.columns(4)
     with mc1:
@@ -1538,47 +1449,69 @@ with tab1:
         )
     with mc2:
         render_full_card(
-            "EUR / TRY Wisselkoers",
+            "EUR / TRY & Grondstoffen",
             format_full_number(macro["eur_try"], 4, "₺"),
             f"Goud (Ons): {format_full_number(macro['gold_usd'], 2, '$')} · Brent Olie: {format_full_number(macro['brent_usd'], 2, '$')}",
             "#1f77b4"
         )
     with mc3:
         render_full_card(
-            "BIST 100 (XU100) Laatste Stand",
-            format_full_number(macro["xu100_price"], 2, ""),
-            f"1m: {format_full_percentage(macro['xu100_return_1m'], 2, True)} · 3m: {format_full_percentage(macro['xu100_return_3m'], 2, True)}",
+            "BIST 30 (XU030) Laatste Stand",
+            format_full_number(macro["xu030_price"], 2, ""),
+            f"1m: {format_full_percentage(macro['xu030_return_1m'], 2, True)} · 3m: {format_full_percentage(macro['xu030_return_3m'], 2, True)}",
             "#2ca02c" if macro["xu100_trend_positive"] else "#ff7f0e"
         )
     with mc4:
-        xu_trend = macro["xu100_sr"]["Trend"] if macro["xu100_sr"] else "Onbekend"
         render_full_card(
-            "BIST 100 Technische Trend & VIX",
-            xu_trend,
-            f"VIX Volatiliteitsindex: {format_full_number(macro['vix'], 2, '')} · Universum: {len(WATCHLIST)} BIST 100 aandelen",
+            "BIST 100 (XU100) Laatste Stand",
+            format_full_number(macro["xu100_price"], 2, ""),
+            f"1m: {format_full_percentage(macro['xu100_return_1m'], 2, True)} · 3m: {format_full_percentage(macro['xu100_return_3m'], 2, True)}",
             "#9467bd"
         )
 
-    st.markdown("### 📐 Steun en Weerstand voor de BIST 100 Index (Volledig Uitgeschreven)")
-    if macro["xu100_sr"]:
-        bsr = macro["xu100_sr"]
-        bist_sr_df = pd.DataFrame([
-            {"Niveau": "Weerstand R3", "Indexstand (Volledig)": format_full_number(bsr["R3"], 2, ""), "Betekenis": "Derde mogelijke weerstand (extreem koersdoel)"},
-            {"Niveau": "Weerstand R2", "Indexstand (Volledig)": format_full_number(bsr["R2"], 2, ""), "Betekenis": "Tweede mogelijke weerstand"},
-            {"Niveau": "Weerstand R1", "Indexstand (Volledig)": format_full_number(bsr["R1"], 2, ""), "Betekenis": "Eerste mogelijke verkoopdruk"},
-            {"Niveau": "Pivot Punt (Midden)", "Indexstand (Volledig)": format_full_number(bsr["Pivot"], 2, ""), "Betekenis": "Centraal kantelpunt van de huidige swing"},
-            {"Niveau": "Huidige BIST 100 Koers", "Indexstand (Volledig)": format_full_number(bsr["Price"], 2, ""), "Betekenis": "Laatste officiële indexstand"},
-            {"Niveau": "Steun S1", "Indexstand (Volledig)": format_full_number(bsr["S1"], 2, ""), "Betekenis": "Eerste mogelijke koopinteresse"},
-            {"Niveau": "Steun S2", "Indexstand (Volledig)": format_full_number(bsr["S2"], 2, ""), "Betekenis": "Tweede mogelijke steun"},
-            {"Niveau": "Steun S3", "Indexstand (Volledig)": format_full_number(bsr["S3"], 2, ""), "Betekenis": "Derde mogelijke steun (diepe correctiezone)"}
-        ])
-        st.table(bist_sr_df)
-        st.info(f"**BIST 100 Relevantie, Volume & Volatiliteit:** {bsr['Relevantie']} — *De niveaus zijn indicaties, geen garanties.*")
-    else:
-        st.warning("Kon de historische BIST 100 (XU100.IS) data momenteel niet ophalen.")
+    st.markdown("### 📐 Steun en Weerstand voor BIST 30 (XU030) & BIST 100 (XU100) (Volledig Uitgeschreven)")
+    idx_col1, idx_col2 = st.columns(2)
+
+    with idx_col1:
+        st.markdown("#### BIST 30 Index (XU030.IS)")
+        if macro["xu030_sr"]:
+            b30 = macro["xu030_sr"]
+            b30_df = pd.DataFrame([
+                {"Niveau": "Weerstand R3", "BIST 30 Stand (Volledig)": format_full_number(b30["R3"], 2, "")},
+                {"Niveau": "Weerstand R2", "BIST 30 Stand (Volledig)": format_full_number(b30["R2"], 2, "")},
+                {"Niveau": "Weerstand R1", "BIST 30 Stand (Volledig)": format_full_number(b30["R1"], 2, "")},
+                {"Niveau": "Pivot Punt (Midden)", "BIST 30 Stand (Volledig)": format_full_number(b30["Pivot"], 2, "")},
+                {"Niveau": "Huidige BIST 30 Koers", "BIST 30 Stand (Volledig)": format_full_number(b30["Price"], 2, "")},
+                {"Niveau": "Steun S1", "BIST 30 Stand (Volledig)": format_full_number(b30["S1"], 2, "")},
+                {"Niveau": "Steun S2", "BIST 30 Stand (Volledig)": format_full_number(b30["S2"], 2, "")},
+                {"Niveau": "Steun S3", "BIST 30 Stand (Volledig)": format_full_number(b30["S3"], 2, "")}
+            ])
+            st.table(b30_df)
+            st.caption(f"**BIST 30 Context:** {b30['Relevantie']}")
+        else:
+            st.info("BIST 30 (XU030.IS) indexdata niet beschikbaar; zie BIST 100 hiernaast.")
+
+    with idx_col2:
+        st.markdown("#### BIST 100 Index (XU100.IS)")
+        if macro["xu100_sr"]:
+            bsr = macro["xu100_sr"]
+            b100_df = pd.DataFrame([
+                {"Niveau": "Weerstand R3", "BIST 100 Stand (Volledig)": format_full_number(bsr["R3"], 2, "")},
+                {"Niveau": "Weerstand R2", "BIST 100 Stand (Volledig)": format_full_number(bsr["R2"], 2, "")},
+                {"Niveau": "Weerstand R1", "BIST 100 Stand (Volledig)": format_full_number(bsr["R1"], 2, "")},
+                {"Niveau": "Pivot Punt (Midden)", "BIST 100 Stand (Volledig)": format_full_number(bsr["Pivot"], 2, "")},
+                {"Niveau": "Huidige BIST 100 Koers", "BIST 100 Stand (Volledig)": format_full_number(bsr["Price"], 2, "")},
+                {"Niveau": "Steun S1", "BIST 100 Stand (Volledig)": format_full_number(bsr["S1"], 2, "")},
+                {"Niveau": "Steun S2", "BIST 100 Stand (Volledig)": format_full_number(bsr["S2"], 2, "")},
+                {"Niveau": "Steun S3", "BIST 100 Stand (Volledig)": format_full_number(bsr["S3"], 2, "")}
+            ])
+            st.table(b100_df)
+            st.caption(f"**BIST 100 Context:** {bsr['Relevantie']}")
+        else:
+            st.warning("Kon de historische BIST 100 (XU100.IS) data momenteel niet ophalen.")
 
     st.divider()
-    st.subheader("🌍 Geopolitieke & Macro 'Top 3' Thematische Selectie")
+    st.subheader("🌍 Geopolitieke & Macro 'Top 3' Thematische Selectie binnen de BIST 30")
     t_col1, t_col2, t_col3 = st.columns(3)
     with t_col1:
         st.info(
@@ -1597,23 +1530,23 @@ with tab1:
         )
 
 # ------------------------------------------------------------------------------
-# TAB 2: VOLLEDIGE BIST 100 SCAN, TOP 10 & RANGLIJST
+# TAB 2: VOLLEDIGE BIST 30 SCAN, TOP 10 & RANGLIJST
 # ------------------------------------------------------------------------------
 with tab2:
-    st.subheader(f"🏆 Volledige BIST 100 Screening ({len(universe)} Aandelen Geselecteerd) & Bruikbaarder Top 10")
+    st.subheader(f"🏆 Volledige BIST 30 Screening ({len(universe)} Aandelen Geselecteerd) & Bruikbaarder Top 10")
     st.write(
-        "De ranglijst combineert voor alle 100 BIST 100-aandelen: "
+        "De ranglijst combineert voor alle 30 BIST 30-aandelen: "
         "**technische signalen (Agent 1)**, **fundamentele gezondheid & kwartaalcijfers (Agent 2)**, "
-        "**positief/negatief KAP-bedrijfsnieuws (Agent 3)**, **de algemene BIST 100-trend & valutabuffer (Agent 4)**, "
+        "**positief/negatief KAP-bedrijfsnieuws (Agent 3)**, **de algemene markttrend & valutabuffer (Agent 4)**, "
         "**schuldenstresstest (Agent 5)**, **aandeleninkoop/dividend (Agent 6)** en **datakwaliteit (Agent 7)**."
     )
 
-    if st.button(f"🚀 Start Volledige 8-Agent Scan op {len(universe)} BIST 100 Aandelen", type="primary", use_container_width=True):
+    if st.button(f"🚀 Start Volledige 8-Agent Scan op {len(universe)} BIST 30 Aandelen", type="primary", use_container_width=True):
         if not universe:
-            st.warning("Selecteer minimaal één aandeel in de zijbalk.")
+            st.warning("Selecteer minimaal één BIST 30-aandeel in de zijbalk.")
         else:
             scan_rows = []
-            prog = st.progress(0, text=f"Initialiseren van de 8 autonome AI-agents voor {len(universe)} aandelen...")
+            prog = st.progress(0, text=f"Initialiseren van de 8 autonome AI-agents voor {len(universe)} BIST 30-aandelen...")
             for idx, ticker in enumerate(universe):
                 prog.progress(
                     (idx + 1) / len(universe),
@@ -1622,7 +1555,6 @@ with tab2:
                 item_res = analyze_stock_enterprise(
                     ticker,
                     macro,
-                    fetch_rss=fetch_per_stock_rss,
                     api_key=gemini_api_key,
                     use_ai=use_gemini_ai
                 )
@@ -1646,13 +1578,13 @@ with tab2:
                 }
                 sort_col = sort_col_map.get(sort_choice, "_total_score_num")
                 df_all = df_all.sort_values(by=sort_col, ascending=False).reset_index(drop=True)
-                st.session_state["bist_57_results"] = df_all
-                st.success(f"Scan succesvol afgerond: {len(df_all)} van de {len(universe)} BIST 100-aandelen volledig geanalyseerd door alle 8 agents.")
+                st.session_state["bist_30_results"] = df_all
+                st.success(f"Scan succesvol afgerond: {len(df_all)} van de {len(universe)} BIST 30-aandelen volledig geanalyseerd door alle 8 agents.")
 
-    if "bist_57_results" in st.session_state:
-        df_res = st.session_state["bist_57_results"]
+    if "bist_30_results" in st.session_state:
+        df_res = st.session_state["bist_30_results"]
 
-        st.markdown("### 🥇 Bruikbaarder Top 10 Selectie uit de BIST 100 (Volledig Uitgeschreven Cijfers)")
+        st.markdown("### 🥇 Bruikbaarder Top 10 Selectie uit de BIST 30 (Volledig Uitgeschreven Cijfers)")
         top10_cols = [
             "Bedrijf", "Ticker", "Sector", "Type Setup", "Totaalscore",
             "Technische score", "Fundamentele score", "Koers (Volledig)",
@@ -1661,7 +1593,7 @@ with tab2:
         ]
         st.dataframe(df_res.head(10)[top10_cols], use_container_width=True, hide_index=True)
 
-        st.markdown(f"### 📋 Volledige BIST 100 Ranglijst ({len(df_res)} Aandelen — Geen Afkortingen)")
+        st.markdown(f"### 📋 Volledige BIST 30 Ranglijst ({len(df_res)} Aandelen — Geen Afkortingen)")
         full_cols = [
             "Bedrijf", "Ticker", "Sector", "Type Setup", "Totaalscore", "Technische score",
             "Fundamentele score", "Koers (Volledig)", "Rendement 1m", "Rendement 3m",
@@ -1674,25 +1606,25 @@ with tab2:
         export_drop = [c for c in df_res.columns if c.startswith("_") or c in ["Positief_Nieuws", "Negatief_Nieuws", "Onduidelijk_Nieuws", "AI_Rapport"]]
         csv_bytes = df_res.drop(columns=export_drop).to_csv(index=False).encode("utf-8-sig")
         st.download_button(
-            "📥 Download Volledige BIST 100 Ranglijst als CSV",
+            "📥 Download Volledige BIST 30 Ranglijst als CSV",
             data=csv_bytes,
-            file_name=f"bist_100_scanner_5_7_volledig_{datetime.now().strftime('%Y%m%d_%H%M')}.csv",
+            file_name=f"bist_30_scanner_5_7_volledig_{datetime.now().strftime('%Y%m%d_%H%M')}.csv",
             mime="text/csv"
         )
     else:
-        st.info(f"Klik op **'Start Volledige 8-Agent Scan op {len(universe)} BIST 100 Aandelen'** hierboven om de volledige BIST 100 te screenen.")
+        st.info(f"Klik op **'Start Volledige 8-Agent Scan op {len(universe)} BIST 30 Aandelen'** hierboven om de volledige BIST 30 te screenen.")
 
 # ------------------------------------------------------------------------------
-# TAB 3: STEUN & WEERSTAND MATRIX (S1-S3 & R1-R3 VOOR IEDER AANDEEL)
+# TAB 3: STEUN & WEERSTAND MATRIX (S1-S3 & R1-R3 VOOR IEDER BIST 30 AANDEEL)
 # ------------------------------------------------------------------------------
 with tab3:
-    st.subheader("📐 Volledige Steun- en Weerstandsmatrix (S1–S3 & R1–R3) per BIST 100 Aandeel")
+    st.subheader("📐 Volledige Steun- en Weerstandsmatrix (S1–S3 & R1–R3) per BIST 30 Aandeel")
     st.write(
-        "Overzicht van de exacte eerste, tweede en derde steun- en weerstandsniveaus voor ieder gescand BIST 100-aandeel, "
+        "Overzicht van de exacte eerste, tweede en derde steun- en weerstandsniveaus voor ieder gescand BIST 30-aandeel, "
         "inclusief de procentuele ruimte tot S1/R1, het volledige handelsvolume en de ATR-volatiliteit."
     )
-    if "bist_57_results" in st.session_state:
-        df_res = st.session_state["bist_57_results"]
+    if "bist_30_results" in st.session_state:
+        df_res = st.session_state["bist_30_results"]
         sr_matrix_cols = [
             "Bedrijf", "Ticker", "Koers (Volledig)", "Trend",
             "Steun S3", "Steun S2", "Steun S1", "Pivot Punt",
@@ -1703,19 +1635,19 @@ with tab3:
         ]
         st.dataframe(df_res[sr_matrix_cols], use_container_width=True, hide_index=True)
     else:
-        st.info("Start eerst de scan in Tab 2 om de volledige Steun & Weerstand Matrix voor alle 100 aandelen te vullen.")
+        st.info("Start eerst de scan in Tab 2 om de volledige Steun & Weerstand Matrix voor alle 30 aandelen te vullen.")
 
 # ------------------------------------------------------------------------------
 # TAB 4: DIEPTE-ANALYSE PER AANDEEL (ALLE 8 AGENTS + VOLLEDIGE TABELLEN)
 # ------------------------------------------------------------------------------
 with tab4:
-    st.subheader("🤖 Diepte-Analyse per Aandeel — Volledige Output van Agent 1 t/m Agent 8")
-    if "bist_57_results" not in st.session_state:
-        st.info("Start eerst de scan in Tab 2 om de individuele rapporten per aandeel te bekijken.")
+    st.subheader("🤖 Diepte-Analyse per BIST 30 Aandeel — Volledige Output van Agent 1 t/m Agent 8")
+    if "bist_30_results" not in st.session_state:
+        st.info("Start eerst de scan in Tab 2 om de individuele rapporten per BIST 30-aandeel te bekijken.")
     else:
-        df_res = st.session_state["bist_57_results"]
+        df_res = st.session_state["bist_30_results"]
         selected_ticker = st.selectbox(
-            "Kies een BIST 100-aandeel voor directe focus (of bekijk de uitklapbare rapporten eronder):",
+            "Kies een BIST 30-aandeel voor directe focus (of bekijk de uitklapbare rapporten eronder):",
             options=df_res["Ticker"].tolist()
         )
 
@@ -1727,6 +1659,8 @@ with tab4:
             ):
                 if row["Alert_Bericht"]:
                     st.success(row["Alert_Bericht"])
+
+                st.caption(f"**Bedrijfsprofiel ({row['Sector']}):** {row['Profiel']}")
 
                 dc1, dc2, dc3, dc4 = st.columns(4)
                 with dc1:
@@ -1821,7 +1755,7 @@ with tab4:
 # TAB 5: ALGEMENE KAP, SPK & MARKTNIEUWS MONITOR (3 CATEGORIEËN)
 # ------------------------------------------------------------------------------
 with tab5:
-    st.subheader("📰 Algemene BIST, KAP & SPK Nieuwsmonitor (Gecategoriseerd)")
+    st.subheader("📰 Algemene BIST 30, KAP & SPK Nieuwsmonitor (Gecategoriseerd)")
     news_df = get_news()
     if news_df.empty:
         st.info("Nieuwsfeed kon momenteel niet worden opgehaald.")
@@ -1856,15 +1790,15 @@ with tab5:
 # TAB 6: PORTEFEUILLE SIMULATOR, HISTORISCHE BACKTEST & TELEGRAM ALERTS
 # ------------------------------------------------------------------------------
 with tab6:
-    st.subheader("💼 Portefeuille Positiegrootte-Simulator (Volledig Uitgeschreven Bedragen)")
+    st.subheader("💼 BIST 30 Portefeuille Positiegrootte-Simulator (Volledig Uitgeschreven Bedragen)")
     p_col1, p_col2 = st.columns(2)
     with p_col1:
         total_capital = st.number_input("Totaal Portefeuillekapitaal (in TRY):", min_value=1000.0, value=250000.0, step=10000.0)
     with p_col2:
         risk_pct_per_trade = st.slider("Maximaal verliesrisico per positie (% van kapitaal):", 0.5, 5.0, 1.5, 0.25)
 
-    if "bist_57_results" in st.session_state:
-        df_res = st.session_state["bist_57_results"]
+    if "bist_30_results" in st.session_state:
+        df_res = st.session_state["bist_30_results"]
         top_picks = df_res.head(10)
         max_loss_try = total_capital * (risk_pct_per_trade / 100.0)
 
@@ -1901,20 +1835,20 @@ with tab6:
         if alerts_available:
             combined_alert_text = "\n\n".join(alerts_available[:10])
             st.code(combined_alert_text, language="text")
-            if st.button("📨 Verstuur Top Alerts Nu naar Telegram"):
+            if st.button("📨 Verstuur Top BIST 30 Alerts Nu naar Telegram"):
                 ok, msg = send_telegram_alert(tg_bot_token, tg_chat_id, combined_alert_text)
                 if ok:
                     st.success(msg)
                 else:
                     st.error(msg)
         else:
-            st.info("Er zijn in de huidige scan geen aandelen met een score van 7,2 of hoger voor een automatische alert.")
+            st.info("Er zijn in de huidige scan geen BIST 30-aandelen met een score van 7,2 of hoger voor een automatische alert.")
 
     st.divider()
-    st.subheader("📈 Historische Signaal-Backtest (Afgelopen 12 Maanden op alle 100 Aandelen)")
+    st.subheader("📈 Historische Signaal-Backtest (Afgelopen 12 Maanden op de BIST 30)")
     bt_col1, bt_col2 = st.columns([2, 1])
     with bt_col1:
-        bt_ticker = st.selectbox("Selecteer een BIST 100-aandeel voor historische backtest:", options=WATCHLIST, index=84)
+        bt_ticker = st.selectbox("Selecteer een BIST 30-aandeel voor historische backtest:", options=WATCHLIST, index=26)
     with bt_col2:
         bt_days = st.slider("Houdperiode per trade (handelsdagen):", 5, 30, 10, 5)
 
