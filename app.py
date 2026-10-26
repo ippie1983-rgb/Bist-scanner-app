@@ -305,7 +305,7 @@ def agent_2_fundamental_quarterly_valuation(info, q_metrics):
     return {"score": score, "pe": pe, "pb": pb, "margin": margin*100 if margin else None, "rev_growth": rg*100 if rg else None, "reasons": rsn}
 
 def agent_3_orderflow_and_alpha(ticker, hist, macro_info):
-    """Agent 3 (Nieuw): Institutionele Orderflow (OBV) & Relative Strength (Alpha)"""
+    """Agent 3 (Vervangt Nieuws Agent): Institutionele Orderflow (OBV) & Relative Strength (Alpha)"""
     close, vol = hist["Close"], hist["Volume"]
     obv = calculate_obv(close, vol)
     obv_sma = obv.rolling(20).mean().iloc[-1]
@@ -327,7 +327,7 @@ def agent_3_orderflow_and_alpha(ticker, hist, macro_info):
         
     return {"adjustment": adj, "alpha": alpha, "reasons": rsn}
 
-def agent_4_macro_fx_devaluation_buffer(ticker, macro_info):
+def agent_4_macro_fx_devaluation_buffer(ticker, sector, macro_info):
     """Agent 4: Macro & Valutabuffer"""
     dev_risk = macro_info.get("dev_risk", False)
     is_exp = ticker in HARD_CURRENCY_EXPORTERS
@@ -410,7 +410,12 @@ def analyze_stock_pure_quant(ticker, macro):
     price = safe_float(hist["Close"].iloc[-1])
     if not price: return None
     
-    info = yf.Ticker(ticker).info or {}
+    # VEILIGHEID: Try-except tegen Yahoo API limiet crashen
+    try:
+        info = yf.Ticker(ticker).info or {}
+    except Exception:
+        info = {}
+        
     company = info.get("longName") or info.get("shortName") or ticker
     sector = SECTOR_MAP.get(ticker, "BIST 30")
     
