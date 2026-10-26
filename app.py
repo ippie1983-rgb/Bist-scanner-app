@@ -11,8 +11,8 @@ import xml.etree.ElementTree as ET
 from datetime import datetime, timedelta
 
 # ==============================================================================
-# BIST 30 SCANNER ULTIMATE 5.7 — 8-AGENT ENTERPRISE COMMAND CENTER
-# VOLLEDIGE UITVOERING: ALLE 30 BIST 30 AANDELEN, GEEN AFKORTINGEN, 8 AGENTS
+# BIST 30 SCANNER ULTIMATE 5.7 — 8-AGENT ENTERPRISE COMMAND CENTER (DEEL 1)
+# VOLLEDIGE UITVOERING: ALLE 30 BIST 30 AANDELEN, GEEN AFKORTINGEN, DATA ENGINE
 # ==============================================================================
 
 st.set_page_config(
@@ -163,23 +163,11 @@ NEWS_URLS = [
     ("Google Nieuws — Turkije Economie & BIST 30", "https://news.google.com/rss/search?q=Turkiye+ekonomi+Borsa+Istanbul+BIST30&hl=tr&gl=TR&ceid=TR:tr"),
     ("Google Nieuws — SPK, Boetes & Onderzoeken", "https://news.google.com/rss/search?q=SPK+fon+borsa+inceleme+ceza&hl=tr&gl=TR&ceid=TR:tr"),
     ("Google Nieuws — KAP & Kwartaalcijfers", "https://news.google.com/rss/search?q=BIST+KAP+sirket+bilanco+kar+zarar+temettu&hl=tr&gl=TR&ceid=TR:tr"),
-    ("Google Nieuws — TCMB Rente & Inflatie", "https://news.google.com/rss/search?q=TCMB+faiz+enflasyon+Merkez+Bankasi&hl=tr&gl=TR&ceid=TR:tr"),
-    ("Google Nieuws — Geopolitiek & Olie (NL)", "https://news.google.com/rss/search?q=Turkije+economie+geopolitiek+olie&hl=nl&gl=NL&ceid=NL:nl")
+    ("Google Nieuws — TCMB Rente & Inflatie", "https://news.google.com/rss/search?q=TCMB+faiz+enflasyon+Merkez+Bankasi&hl=tr&gl=TR&ceid=TR:tr")
 ]
 
-POSITIVE_KEYWORDS = [
-    "yatırım", "ihale", "sözleşme", "anlaşma", "temettü", "kar payı", "geri alım",
-    "kapasite", "büyüme", "rekor kar", "beklenti üstü", "sipariş", "ihracat",
-    "investering", "contract", "dividend", "inkoop", "uitbreiding", "winststijging",
-    "onay", "yeni iş", "bedelsiz", "artış", "güçlü bilanço", "ihale kazandı"
-]
-
-NEGATIVE_KEYWORDS = [
-    "zarar", "ceza", "soruşturma", "inceleme", "spk", "borç", "üretim durdu",
-    "grev", "beklenti altı", "düşüş", "kriz", "iptal", "dava", "uyarı",
-    "verlies", "boete", "onderzoek", "schuld", "winstwaarschuwing", "sanctie",
-    "oorlog", "gözaltı", "tutuklama", "kayyum", "manipülasyon", "tedbir", "iflas"
-]
+POSITIVE_KEYWORDS = ["yatırım", "ihale", "sözleşme", "anlaşma", "temettü", "kar payı", "geri alım", "kapasite", "büyüme", "rekor kar", "beklenti üstü", "sipariş", "ihracat", "investering", "contract", "dividend", "inkoop", "uitbreiding", "winststijging", "onay", "yeni iş", "bedelsiz", "artış", "güçlü bilanço", "ihale kazandı"]
+NEGATIVE_KEYWORDS = ["zarar", "ceza", "soruşturma", "inceleme", "spk", "borç", "üretim durdu", "grev", "beklenti altı", "düşüş", "kriz", "iptal", "dava", "uyarı", "verlies", "boete", "onderzoek", "schuld", "winstwaarschuwing", "sanctie", "oorlog", "gözaltı", "tutuklama", "kayyum", "manipülasyon", "tedbir", "iflas"]
 
 # ==============================================================================
 # 2. STRICTE FORMATTERINGSHULPFUNCTIES (VOLLEDIGE GETALLEN ZONDER AFKORTING)
@@ -187,71 +175,47 @@ NEGATIVE_KEYWORDS = [
 
 def safe_float(value):
     try:
-        if value is None:
-            return None
+        if value is None: return None
         val = float(value)
         return val if np.isfinite(val) else None
     except (TypeError, ValueError):
         return None
 
 def format_full_number(val, decimals=2, currency="₺"):
-    """
-    Formatteert elk getal volledig uitgeschreven in Nederlandse notatie.
-    Voorbeeld: 11150.45 -> '₺11.150,45' (NOOIT '11,1K' of '11,2M').
-    """
     v = safe_float(val)
-    if v is None:
-        return "Niet beschikbaar"
+    if v is None: return "Niet beschikbaar"
     prefix = f"{currency}" if currency else ""
-    if decimals <= 0:
-        formatted = f"{v:,.0f}".replace(",", ".")
-        return f"{prefix}{formatted}"
+    if decimals <= 0: return f"{prefix}{v:,.0f}".replace(",", ".")
     fmt_str = f"{{:,.{decimals}f}}"
-    raw = fmt_str.format(v)
-    parts = raw.split(".")
-    integer_part = parts[0].replace(",", ".")
-    decimal_part = parts[1] if len(parts) > 1 else ""
-    return f"{prefix}{integer_part},{decimal_part}"
+    parts = fmt_str.format(v).split(".")
+    return f"{prefix}{parts[0].replace(',', '.')},{parts[1]}"
 
 def format_full_integer(val, currency=""):
-    """Formatteert gehele getallen zoals volumes of aantallen volledig met punt-scheiding."""
     v = safe_float(val)
-    if v is None:
-        return "Niet beschikbaar"
+    if v is None: return "Niet beschikbaar"
     prefix = f"{currency}" if currency else ""
     return f"{prefix}{v:,.0f}".replace(",", ".")
 
 def format_full_percentage(val, decimals=2, include_plus=False):
-    """Formatteert percentages volledig uitgeschreven met komma."""
     v = safe_float(val)
-    if v is None:
-        return "Niet beschikbaar"
+    if v is None: return "Niet beschikbaar"
     sign = "+" if (include_plus and v > 0) else ""
-    raw = f"{v:,.{decimals}f}"
-    parts = raw.split(".")
-    integer_part = parts[0].replace(",", ".")
-    return f"{sign}{integer_part},{parts[1]}%"
+    parts = f"{v:,.{decimals}f}".split(".")
+    return f"{sign}{parts[0].replace(',', '.')},{parts[1]}%"
 
 def format_full_ratio(val, decimals=2, suffix="x"):
-    """Formatteert waarderingsratio's zoals P/E en P/B volledig."""
     v = safe_float(val)
-    if v is None or v <= 0:
-        return "Niet beschikbaar"
-    raw = f"{v:,.{decimals}f}"
-    parts = raw.split(".")
-    integer_part = parts[0].replace(",", ".")
-    return f"{integer_part},{parts[1]}{suffix}"
+    if v is None or v <= 0: return "Niet beschikbaar"
+    parts = f"{v:,.{decimals}f}".split(".")
+    return f"{parts[0].replace(',', '.')},{parts[1]}{suffix}"
 
 def render_full_card(title, value_str, subtitle_str="", border_color="#1f77b4"):
-    """Rendert een HTML-kaart die grote getallen zoals 11.150,45 nooit afkapt."""
     st.markdown(
-        f"""
-        <div class="full-num-card" style="border-left-color: {border_color};">
+        f"""<div class="full-num-card" style="border-left-color: {border_color};">
             <div class="full-num-title">{title}</div>
             <div class="full-num-val">{value_str}</div>
             <div class="full-num-sub">{subtitle_str}</div>
-        </div>
-        """,
+        </div>""",
         unsafe_allow_html=True
     )
 
@@ -263,11 +227,8 @@ def render_full_card(title, value_str, subtitle_str="", border_color="#1f77b4"):
 def get_history(ticker, period="1y", interval="1d"):
     try:
         df = yf.Ticker(ticker).history(period=period, interval=interval, auto_adjust=True)
-        if df is None or df.empty:
-            return pd.DataFrame()
-        return df.dropna(subset=["Close", "High", "Low"])
-    except Exception:
-        return pd.DataFrame()
+        return df.dropna(subset=["Close", "High", "Low"]) if (df is not None and not df.empty) else pd.DataFrame()
+    except Exception: return pd.DataFrame()
 
 def calculate_rsi(close, period=14):
     delta = close.diff()
@@ -277,68 +238,42 @@ def calculate_rsi(close, period=14):
     rsi = 100.0 - (100.0 / (1.0 + rs))
     rsi = rsi.where(loss != 0, 100.0)
     flat = (gain == 0) & (loss == 0)
-    rsi = rsi.where(~flat, 50.0)
-    return rsi.fillna(50.0)
+    return rsi.where(~flat, 50.0).fillna(50.0)
 
 def calculate_bollinger_bands(close, period=20, std_dev=2.0):
     sma = close.rolling(period).mean()
     std = close.rolling(period).std()
-    upper = sma + (std_dev * std)
-    lower = sma - (std_dev * std)
-    return sma, upper, lower
+    return sma, sma + (std_dev * std), sma - (std_dev * std)
 
 def calculate_sr_levels(hist):
-    """
-    Berekent Fibonacci Swing Pivot Points (S1, S2, S3, Pivot, R1, R2, R3)
-    inclusief trend-, volume- en ATR-volatiliteitscontext.
-    """
-    if hist is None or hist.empty or len(hist) < 5:
-        return None
-
+    if hist is None or hist.empty or len(hist) < 5: return None
     close = hist["Close"].astype(float)
     high = hist["High"].astype(float)
     low = hist["Low"].astype(float)
     volume = hist["Volume"].astype(float) if "Volume" in hist else pd.Series(dtype=float)
-
     price = safe_float(close.iloc[-1])
-    if price is None or price <= 0:
-        return None
+    if price is None or price <= 0: return None
 
     window = hist.tail(min(20, len(hist) - 1)) if len(hist) > 2 else hist
-    h = safe_float(window["High"].max()) or price
-    l = safe_float(window["Low"].min()) or price
+    h, l = safe_float(window["High"].max()) or price, safe_float(window["Low"].min()) or price
     c = safe_float(close.iloc[-2]) if len(close) >= 2 else price
-
     pivot = (h + l + c) / 3.0
     rng = max(h - l, price * 0.02)
 
-    r1 = pivot + (0.382 * rng)
-    r2 = pivot + (0.618 * rng)
-    r3 = pivot + (1.000 * rng)
+    r1, r2, r3 = pivot + (0.382 * rng), pivot + (0.618 * rng), pivot + (1.000 * rng)
+    s1, s2, s3 = max(0.01, pivot - (0.382 * rng)), max(0.01, pivot - (0.618 * rng)), max(0.01, pivot - (1.000 * rng))
 
-    s1 = max(0.01, pivot - (0.382 * rng))
-    s2 = max(0.01, pivot - (0.618 * rng))
-    s3 = max(0.01, pivot - (1.000 * rng))
-
-    sma20 = safe_float(close.rolling(20).mean().iloc[-1])
-    sma50 = safe_float(close.rolling(50).mean().iloc[-1])
+    sma20, sma50 = safe_float(close.rolling(20).mean().iloc[-1]), safe_float(close.rolling(50).mean().iloc[-1])
     sma200 = safe_float(close.rolling(200).mean().iloc[-1]) if len(close) >= 200 else None
 
     if sma20 and sma50:
-        if price > sma20 > sma50:
-            trend = "Sterk opwaarts"
-        elif price > sma20:
-            trend = "Herstellend / licht opwaarts"
-        elif price < sma20 < sma50:
-            trend = "Neerwaarts"
-        else:
-            trend = "Zijwaarts / gemengd"
-    else:
-        trend = "Onvoldoende historie"
+        if price > sma20 > sma50: trend = "Sterk opwaarts"
+        elif price > sma20: trend = "Herstellend / licht opwaarts"
+        elif price < sma20 < sma50: trend = "Neerwaarts"
+        else: trend = "Zijwaarts / gemengd"
+    else: trend = "Onvoldoende historie"
 
-    vol_avg_20 = None
-    vol_latest = None
-    vol_ratio = None
+    vol_avg_20, vol_latest, vol_ratio = None, None, None
     if not volume.empty and len(volume) >= 5:
         vol_avg_20 = safe_float(volume.tail(20).mean())
         vol_latest = safe_float(volume.iloc[-1])
@@ -346,299 +281,163 @@ def calculate_sr_levels(hist):
             vol_ratio = vol_latest / vol_avg_20
 
     prev_close = close.shift(1)
-    tr = pd.concat([
-        high - low,
-        (high - prev_close).abs(),
-        (low - prev_close).abs()
-    ], axis=1).max(axis=1)
+    tr = pd.concat([high - low, (high - prev_close).abs(), (low - prev_close).abs()], axis=1).max(axis=1)
     atr = safe_float(tr.rolling(14).mean().iloc[-1]) or (price * 0.03)
     atr_pct = (atr / price) * 100.0 if price > 0 else 0.0
 
-    dist_s1_pct = ((price - s1) / price) * 100.0 if price > 0 else 0.0
-    dist_r1_pct = ((r1 - price) / price) * 100.0 if price > 0 else 0.0
+    dist_s1_pct, dist_r1_pct = ((price - s1) / price) * 100.0 if price > 0 else 0.0, ((r1 - price) / price) * 100.0 if price > 0 else 0.0
 
     rel_parts = [f"Trend: {trend}"]
     if vol_ratio is not None:
-        if vol_ratio >= 1.3:
-            rel_parts.append(f"Hoog volume ({format_full_number(vol_ratio, 2, '')}x gemiddelde — sterke bevestiging)")
-        elif vol_ratio <= 0.7:
-            rel_parts.append(f"Laag volume ({format_full_number(vol_ratio, 2, '')}x gemiddelde — zwakke overtuiging)")
-        else:
-            rel_parts.append(f"Normaal volume ({format_full_number(vol_ratio, 2, '')}x gemiddelde)")
-    rel_parts.append(f"Volatiliteit (ATR): {format_full_percentage(atr_pct, 2)} van de koers")
+        rel_parts.append(f"Hoog volume ({format_full_number(vol_ratio, 2, '')}x)" if vol_ratio >= 1.3 else f"Laag volume ({format_full_number(vol_ratio, 2, '')}x)" if vol_ratio <= 0.7 else f"Normaal volume ({format_full_number(vol_ratio, 2, '')}x)")
+    rel_parts.append(f"Volatiliteit (ATR): {format_full_percentage(atr_pct, 2)}")
 
     return {
-        "Price": price,
-        "Pivot": pivot,
-        "R1": r1,
-        "R2": r2,
-        "R3": r3,
-        "S1": s1,
-        "S2": s2,
-        "S3": s3,
-        "Dist_S1_Pct": dist_s1_pct,
-        "Dist_R1_Pct": dist_r1_pct,
-        "SMA20": sma20,
-        "SMA50": sma50,
-        "SMA200": sma200,
-        "Trend": trend,
-        "Vol_Latest": vol_latest,
-        "Vol_Avg20": vol_avg_20,
-        "Vol_Ratio": vol_ratio,
-        "ATR": atr,
-        "ATR_Pct": atr_pct,
-        "Relevantie": " · ".join(rel_parts)
+        "Price": price, "Pivot": pivot, "R1": r1, "R2": r2, "R3": r3, "S1": s1, "S2": s2, "S3": s3,
+        "Dist_S1_Pct": dist_s1_pct, "Dist_R1_Pct": dist_r1_pct, "SMA20": sma20, "SMA50": sma50, "SMA200": sma200,
+        "Trend": trend, "Vol_Latest": vol_latest, "Vol_Avg20": vol_avg_20, "Vol_Ratio": vol_ratio, "ATR": atr, "ATR_Pct": atr_pct, "Relevantie": " · ".join(rel_parts)
     }
 
 @st.cache_data(ttl=900, show_spinner=False)
 def get_macro_data():
-    """Haalt alle macro-indicatoren én zowel de BIST 30 (XU030) als BIST 100 (XU100) analyse op."""
-    output = {
-        "usd_try": None,
-        "usd_try_change_1m": None,
-        "eur_try": None,
-        "dev_risk": False,
-        "xu030_price": None,
-        "xu030_return_1m": None,
-        "xu030_return_3m": None,
-        "xu030_sr": None,
-        "xu100_price": None,
-        "xu100_return_1m": None,
-        "xu100_return_3m": None,
-        "xu100_sr": None,
-        "xu100_trend_positive": False,
-        "gold_usd": None,
-        "brent_usd": None,
-        "vix": None
-    }
+    out = {"usd_try": None, "usd_try_change_1m": None, "eur_try": None, "dev_risk": False, "xu030_price": None, "xu030_return_1m": None, "xu030_return_3m": None, "xu030_sr": None, "xu100_price": None, "xu100_return_1m": None, "xu100_return_3m": None, "xu100_sr": None, "xu100_trend_positive": False, "gold_usd": None, "brent_usd": None, "vix": None}
     try:
         fx = get_history("USDTRY=X", "3mo")
         if not fx.empty:
-            val = safe_float(fx["Close"].iloc[-1])
-            output["usd_try"] = val
+            v = safe_float(fx["Close"].iloc[-1])
+            out["usd_try"] = v
             if len(fx) >= 22:
-                prev_fx = safe_float(fx["Close"].iloc[-22])
-                if val and prev_fx and prev_fx > 0:
-                    output["usd_try_change_1m"] = ((val / prev_fx) - 1.0) * 100.0
-            if val is not None and (val > 42.0 or (output["usd_try_change_1m"] and output["usd_try_change_1m"] > 2.5)):
-                output["dev_risk"] = True
-    except Exception:
-        pass
-
-    try:
-        eur = get_history("EURTRY=X", "1mo")
-        if not eur.empty:
-            output["eur_try"] = safe_float(eur["Close"].iloc[-1])
-    except Exception:
-        pass
+                pv = safe_float(fx["Close"].iloc[-22])
+                if v and pv and pv > 0: out["usd_try_change_1m"] = ((v / pv) - 1.0) * 100.0
+            if v and (v > 42.0 or (out["usd_try_change_1m"] and out["usd_try_change_1m"] > 2.5)): out["dev_risk"] = True
+    except: pass
 
     try:
         m30 = get_history("XU030.IS", "1y")
         if len(m30) >= 5:
             c30 = m30["Close"].astype(float)
-            output["xu030_price"] = safe_float(c30.iloc[-1])
-            if len(c30) >= 22:
-                output["xu030_return_1m"] = float((c30.iloc[-1] / c30.iloc[-22] - 1.0) * 100.0)
-            idx30 = max(0, len(c30) - 64)
-            output["xu030_return_3m"] = float((c30.iloc[-1] / c30.iloc[idx30] - 1.0) * 100.0)
-            output["xu030_sr"] = calculate_sr_levels(m30)
-    except Exception:
-        pass
+            out["xu030_price"] = safe_float(c30.iloc[-1])
+            if len(c30) >= 22: out["xu030_return_1m"] = float((c30.iloc[-1] / c30.iloc[-22] - 1.0) * 100.0)
+            out["xu030_return_3m"] = float((c30.iloc[-1] / c30.iloc[max(0, len(c30) - 64)] - 1.0) * 100.0)
+            out["xu030_sr"] = calculate_sr_levels(m30)
+    except: pass
 
     try:
-        market = get_history("XU100.IS", "1y")
-        if len(market) >= 5:
-            close_m = market["Close"].astype(float)
-            output["xu100_price"] = safe_float(close_m.iloc[-1])
-            if len(close_m) >= 22:
-                output["xu100_return_1m"] = float((close_m.iloc[-1] / close_m.iloc[-22] - 1.0) * 100.0)
-            lookback_idx = max(0, len(close_m) - 64)
-            output["xu100_return_3m"] = float((close_m.iloc[-1] / close_m.iloc[lookback_idx] - 1.0) * 100.0)
-            sr = calculate_sr_levels(market)
-            output["xu100_sr"] = sr
-            if sr and sr["Trend"] in ["Sterk opwaarts", "Herstellend / licht opwaarts"]:
-                output["xu100_trend_positive"] = True
-    except Exception:
-        pass
-
-    for key, sym in [("gold_usd", "GC=F"), ("brent_usd", "BZ=F"), ("vix", "^VIX")]:
+        m100 = get_history("XU100.IS", "1y")
+        if len(m100) >= 5:
+            c100 = m100["Close"].astype(float)
+            out["xu100_price"] = safe_float(c100.iloc[-1])
+            if len(c100) >= 22: out["xu100_return_1m"] = float((c100.iloc[-1] / c100.iloc[-22] - 1.0) * 100.0)
+            out["xu100_return_3m"] = float((c100.iloc[-1] / c100.iloc[max(0, len(c100) - 64)] - 1.0) * 100.0)
+            sr = calculate_sr_levels(m100)
+            out["xu100_sr"] = sr
+            if sr and sr["Trend"] in ["Sterk opwaarts", "Herstellend / licht opwaarts"]: out["xu100_trend_positive"] = True
+    except: pass
+    
+    for k, s in [("eur_try", "EURTRY=X"), ("gold_usd", "GC=F"), ("brent_usd", "BZ=F"), ("vix", "^VIX")]:
         try:
-            d = get_history(sym, "1mo")
-            if not d.empty:
-                output[key] = safe_float(d["Close"].iloc[-1])
-        except Exception:
-            pass
-
-    return output
+            d = get_history(s, "1mo")
+            if not d.empty: out[k] = safe_float(d["Close"].iloc[-1])
+        except: pass
+    return out
 
 @st.cache_data(ttl=900, show_spinner=False)
 def get_quarterly_and_balance_metrics(ticker):
-    """
-    Haalt de volledige, onafgekorte kwartaalcijfers (omzet, nettowinst, QoQ groei)
-    én balanscijfers (totale schuld, kaspositie) op uit Yahoo Finance.
-    """
-    q_data = {
-        "last_quarter_date": "Niet beschikbaar",
-        "q_rev_full": None,
-        "q_net_full": None,
-        "qoq_rev_growth": None,
-        "qoq_net_growth": None,
-        "total_debt_full": None,
-        "total_cash_full": None,
-        "net_debt_full": None
-    }
+    q_data = {"last_quarter_date": "Niet beschikbaar", "q_rev_full": None, "q_net_full": None, "qoq_rev_growth": None, "qoq_net_growth": None, "total_debt_full": None, "total_cash_full": None, "net_debt_full": None}
     try:
         t_obj = yf.Ticker(ticker)
         q_inc = t_obj.quarterly_income_stmt
         if q_inc is not None and not q_inc.empty:
-            cols = q_inc.columns
-            q_data["last_quarter_date"] = str(cols[0])[:10]
-
-            rev_keys = [k for k in q_inc.index if "Total Revenue" in str(k) or "Operating Revenue" in str(k)]
-            net_keys = [k for k in q_inc.index if "Net Income" in str(k)]
-
-            if rev_keys:
-                r0 = safe_float(q_inc.loc[rev_keys[0], cols[0]])
+            c = q_inc.columns
+            q_data["last_quarter_date"] = str(c[0])[:10]
+            rk = [k for k in q_inc.index if "Total Revenue" in str(k) or "Operating Revenue" in str(k)]
+            nk = [k for k in q_inc.index if "Net Income" in str(k)]
+            if rk:
+                r0 = safe_float(q_inc.loc[rk[0], c[0]])
                 q_data["q_rev_full"] = r0
-                if len(cols) >= 2:
-                    r1 = safe_float(q_inc.loc[rev_keys[0], cols[1]])
-                    if r0 is not None and r1 and r1 > 0:
-                        q_data["qoq_rev_growth"] = ((r0 / r1) - 1.0) * 100.0
-
-            if net_keys:
-                n0 = safe_float(q_inc.loc[net_keys[0], cols[0]])
+                if len(c) >= 2:
+                    r1 = safe_float(q_inc.loc[rk[0], c[1]])
+                    if r0 is not None and r1 and r1 > 0: q_data["qoq_rev_growth"] = ((r0 / r1) - 1.0) * 100.0
+            if nk:
+                n0 = safe_float(q_inc.loc[nk[0], c[0]])
                 q_data["q_net_full"] = n0
-                if len(cols) >= 2:
-                    n1 = safe_float(q_inc.loc[net_keys[0], cols[1]])
-                    if n0 is not None and n1 and abs(n1) > 0:
-                        q_data["qoq_net_growth"] = ((n0 - n1) / abs(n1)) * 100.0
+                if len(c) >= 2:
+                    n1 = safe_float(q_inc.loc[nk[0], c[1]])
+                    if n0 is not None and n1 and abs(n1) > 0: q_data["qoq_net_growth"] = ((n0 - n1) / abs(n1)) * 100.0
 
         q_bal = t_obj.quarterly_balance_sheet
         if q_bal is not None and not q_bal.empty:
-            b_cols = q_bal.columns
-            debt_keys = [k for k in q_bal.index if "Total Debt" in str(k)]
-            cash_keys = [k for k in q_bal.index if "Cash And Cash Equivalents" in str(k) or "End Cash Position" in str(k)]
-            if debt_keys:
-                q_data["total_debt_full"] = safe_float(q_bal.loc[debt_keys[0], b_cols[0]])
-            if cash_keys:
-                q_data["total_cash_full"] = safe_float(q_bal.loc[cash_keys[0], b_cols[0]])
+            bc = q_bal.columns
+            dk = [k for k in q_bal.index if "Total Debt" in str(k)]
+            ck = [k for k in q_bal.index if "Cash And Cash Equivalents" in str(k) or "End Cash Position" in str(k)]
+            if dk: q_data["total_debt_full"] = safe_float(q_bal.loc[dk[0], bc[0]])
+            if ck: q_data["total_cash_full"] = safe_float(q_bal.loc[ck[0], bc[0]])
             if q_data["total_debt_full"] is not None and q_data["total_cash_full"] is not None:
                 q_data["net_debt_full"] = q_data["total_debt_full"] - q_data["total_cash_full"]
-    except Exception:
-        pass
+    except: pass
     return q_data
 
 def classify_headline(title):
     t_low = title.lower()
-    pos_hits = sum(1 for w in POSITIVE_KEYWORDS if w in t_low)
-    neg_hits = sum(1 for w in NEGATIVE_KEYWORDS if w in t_low)
-    if pos_hits > 0 and neg_hits == 0:
-        return "Positief"
-    if neg_hits > 0 and pos_hits == 0:
-        return "Negatief"
+    p_hits = sum(1 for w in POSITIVE_KEYWORDS if w in t_low)
+    n_hits = sum(1 for w in NEGATIVE_KEYWORDS if w in t_low)
+    if p_hits > 0 and n_hits == 0: return "Positief"
+    if n_hits > 0 and p_hits == 0: return "Negatief"
     return "Onduidelijk / Te controleren"
 
 @st.cache_data(ttl=900, show_spinner=False)
 def get_news():
     items = []
-    for source, url in NEWS_URLS:
+    for s, url in NEWS_URLS:
         try:
-            request = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
-            with urllib.request.urlopen(request, timeout=7) as response:
-                root = ET.fromstring(response.read())
+            req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+            with urllib.request.urlopen(req, timeout=7) as resp:
+                root = ET.fromstring(resp.read())
             for item in root.findall(".//item")[:10]:
-                title = item.findtext("title")
-                link = item.findtext("link")
-                pub_date = item.findtext("pubDate")
-                if title:
-                    cat = classify_headline(title)
-                    items.append({
-                        "Bron": source,
-                        "Signaal": cat,
-                        "Titel": title,
-                        "Datum": pub_date or "",
-                        "Link": link or ""
-                    })
-        except Exception:
-            continue
-    if not items:
-        return pd.DataFrame(columns=["Bron", "Signaal", "Titel", "Datum", "Link"])
-    return pd.DataFrame(items).drop_duplicates(subset=["Titel"]).head(45)
+                t = item.findtext("title")
+                l = item.findtext("link")
+                d = item.findtext("pubDate")
+                if t: items.append({"Bron": s, "Signaal": classify_headline(t), "Titel": t, "Datum": d or "", "Link": l or ""})
+        except: continue
+    return pd.DataFrame(items).drop_duplicates(subset=["Titel"]).head(45) if items else pd.DataFrame(columns=["Bron", "Signaal", "Titel", "Datum", "Link"])
 
 @st.cache_data(ttl=900, show_spinner=False)
 def get_stock_news(ticker, company_name):
-    code = ticker.replace(".IS", "")
-    short_name = company_name[:15] if company_name else code
-    query = urllib.parse.quote(f"{code} OR \"{short_name}\" KAP hisse bilanço temettü")
+    query = urllib.parse.quote(f"{ticker.replace('.IS', '')} OR \"{company_name[:15] if company_name else ticker.replace('.IS', '')}\" KAP hisse bilanço temettü")
     url = f"https://news.google.com/rss/search?q={query}&hl=tr&gl=TR&ceid=TR:tr"
-    pos_list, neg_list, unc_list = [], [], []
+    pos, neg, unc = [], [], []
     try:
         req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
         with urllib.request.urlopen(req, timeout=5) as response:
             root = ET.fromstring(response.read())
         for item in root.findall(".//item")[:8]:
-            title = item.findtext("title")
-            pub_date = item.findtext("pubDate") or ""
-            link = item.findtext("link") or ""
-            if title:
-                cat = classify_headline(title)
-                entry = {"titel": title, "datum": pub_date[:16], "link": link}
-                if cat == "Positief":
-                    pos_list.append(entry)
-                elif cat == "Negatief":
-                    neg_list.append(entry)
-                else:
-                    unc_list.append(entry)
-    except Exception:
-        pass
-    return pos_list, neg_list, unc_list
+            t = item.findtext("title")
+            if t:
+                cat = classify_headline(t)
+                entry = {"titel": t, "datum": (item.findtext("pubDate") or "")[:16], "link": item.findtext("link") or ""}
+                if cat == "Positief": pos.append(entry)
+                elif cat == "Negatief": neg.append(entry)
+                else: unc.append(entry)
+    except: pass
+    return pos, neg, unc
 
 @st.cache_data(ttl=900, show_spinner=False)
 def call_gemini_kap_agent(ticker, company, fund_summary, q_metrics, headlines_tuple, usd_try, api_key):
-    """Optionele Cloud-Proof Google Gemini AI-Agent (urllib.request) voor diepgaande KAP & kwartaalduiding."""
-    if not api_key or not api_key.strip():
-        return None
+    if not api_key or not api_key.strip(): return None
     try:
         headlines_text = "\n".join([f"- {h}" for h in headlines_tuple]) if headlines_tuple else "Geen recente headlines."
         prompt = f"""
-Je bent een senior kwantitatief en fundamenteel analist voor Borsa Istanbul (BIST 30).
-Analyseer {company} ({ticker}) op basis van de onderstaande volledige cijfers en Turkse KAP/nieuwsberichten.
-USD/TRY koers: {usd_try}
-Fundamenteel: {json.dumps(fund_summary, ensure_ascii=False)}
-Kwartaalcijfers: {json.dumps(q_metrics, ensure_ascii=False)}
-Headlines:
-{headlines_text}
-
-Geef een zakelijke Nederlandse analyse in JSON met exact deze velden:
-- sentiment_label (Sterk Positief / Positief / Neutraal / Negatief / Sterk Negatief)
-- score_adjustment (getal tussen -1.5 en +1.5)
-- kwartaal_analyse (2-3 zinnen in het Nederlands)
-- kap_duiding (2-3 zinnen in het Nederlands)
-- belangrijkste_katalysator (1 zin)
-- grootste_risico (1 zin)
+Je bent een senior kwantitatief analist voor Borsa Istanbul (BIST 30). Analyseer {company} ({ticker}) in JSON format met velden: sentiment_label (Sterk Positief/Positief/Neutraal/Negatief/Sterk Negatief), score_adjustment (-1.5 tot +1.5), kwartaal_analyse (NL), kap_duiding (NL), belangrijkste_katalysator (NL), grootste_risico (NL).
+USD/TRY koers: {usd_try}, Fundamenteel: {json.dumps(fund_summary)}, Kwartaal: {json.dumps(q_metrics)}, Headlines:\n{headlines_text}
 """
-        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={urllib.parse.quote(api_key.strip())}"
-        payload = {
-            "contents": [{"parts": [{"text": prompt}]}],
-            "generationConfig": {
-                "temperature": 0.2,
-                "responseMimeType": "application/json"
-            }
-        }
         req = urllib.request.Request(
-            url,
-            data=json.dumps(payload).encode("utf-8"),
-            headers={"Content-Type": "application/json"},
-            method="POST"
+            f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={urllib.parse.quote(api_key.strip())}",
+            data=json.dumps({"contents": [{"parts": [{"text": prompt}]}], "generationConfig": {"temperature": 0.2, "responseMimeType": "application/json"}}).encode("utf-8"),
+            headers={"Content-Type": "application/json"}, method="POST"
         )
         with urllib.request.urlopen(req, timeout=12) as resp:
-            data = json.loads(resp.read().decode("utf-8"))
-            txt = data["candidates"][0]["content"]["parts"][0]["text"]
-            return json.loads(txt)
-    except Exception:
-        return None
-
-
+            return json.loads(json.loads(resp.read().decode("utf-8"))["candidates"][0]["content"]["parts"][0]["text"])
+    except: return None
 # ==============================================================================
 # 4. DE 8 VOLLEDIG ZELFSTANDIGE AUTONOME AI-AGENTS (BIST 30 ENTERPRISE)
 # ==============================================================================
@@ -647,6 +446,7 @@ def agent_1_multi_timeframe_quant(ticker, hist_daily, sr_info):
     """
     AGENT 1: Technische Quant & Multi-Timeframe Momentum Agent.
     Analyseert Dagelijkse én Wekelijkse trend, SMA20/50/200, RSI(14), MACD, Bollinger Bands en Volume.
+    Inclusief Sharpe Momentum (Risico-gecorrigeerd rendement).
     """
     close = hist_daily["Close"].astype(float)
     price = safe_float(close.iloc[-1])
@@ -1079,7 +879,7 @@ def agent_7_independent_risk_and_factcheck_auditor(tech_res, fund_res, news_res,
     # Onderscheid maken tussen Herstelkans vs. Terecht Gedaald vs. Sterke Trend
     if f_score is not None and f_score >= 6.2 and (rsi is not None and rsi <= 48.0) and neg_count == 0:
         setup_type = "Koopwaardige Herstelkans (Sterk fundament, lage RSI)"
-        risk_level = "Gemiddeld (Wacht op steunbevestiging rond S1)"
+        risk_level = "Gemiddeld (Wacht op steunbevestiging rond S1 of Pivot)"
     elif (f_score is not None and f_score < 4.2) or neg_count > pos_count + 1 or debt_res["adjustment"] <= -0.7:
         setup_type = "Opgelet: Terecht Gedaald / Hoog Risico (Zwakke cijfers of negatief nieuws)"
         risk_level = "Hoog (Vermijd waardevalkuil / Value Trap)"
@@ -1238,7 +1038,7 @@ def analyze_stock_enterprise(ticker, macro_info, api_key=None, use_ai=False):
         "Ticker": ticker,
         "Sector": sector,
         "Profiel": profile_desc,
-        # Numerieke waarden voor sortering en berekening
+        # Numerieke waarden voor sortering en interne berekening
         "_price_num": price,
         "_total_score_num": overall_score,
         "_tech_score_num": a1["score"],
@@ -1249,7 +1049,7 @@ def analyze_stock_enterprise(ticker, macro_info, api_key=None, use_ai=False):
         "_r1_num": sr_info["R1"] if sr_info else None,
         "_atr_stop_num": a8["atr_stop"],
         "_atr_target_num": a8["atr_target"],
-        # Volledig uitgeschreven kolommen (GEEN AFKORTINGEN)
+        # Volledig uitgeschreven kolommen (STRIKT GEEN AFKORTINGEN)
         "Type Setup": a7["setup_type"],
         "Totaalscore": format_full_number(overall_score, 1, ""),
         "Technische score": format_full_number(a1["score"], 1, ""),
@@ -1316,7 +1116,7 @@ def analyze_stock_enterprise(ticker, macro_info, api_key=None, use_ai=False):
 def run_historical_backtest(ticker, holding_days=10):
     """
     Voert een historische backtest uit op de afgelopen 12 maanden voor het gekozen BIST 30-aandeel:
-    Koopsignaal wanneer Koers > SMA50 én RSI tussen 35 en 60 kruist.
+    Koopsignaal wanneer Koers > SMA50 én RSI tussen 35 en 60 kruist (Opwaarts momentum).
     """
     hist = get_history(ticker, "1y")
     if hist.empty or len(hist) < 60:
