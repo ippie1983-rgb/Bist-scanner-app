@@ -114,6 +114,15 @@ def format_full_ratio(val, decimals=2, suffix="x"):
     parts = f"{v:,.{decimals}f}".split(".")
     return f"{parts[0].replace(',', '.')},{parts[1]}{suffix}"
 
+def render_full_card(title, value_str, subtitle_str="", border_color="#1f77b4"):
+    st.markdown(
+        f"""<div class="full-num-card" style="border-left-color: {border_color};">
+            <div class="full-num-title">{title}</div>
+            <div class="full-num-val">{value_str}</div>
+            <div class="full-num-sub">{subtitle_str}</div>
+        </div>""", unsafe_allow_html=True
+    )
+
 # ==============================================================================
 # 3. KWANTITATIEVE ALGORITMES & DATA OPHAALFUNCTIES
 # ==============================================================================
@@ -138,7 +147,6 @@ def calculate_macd(close):
     return macd_line, signal_line
 
 def calculate_obv(close, volume):
-    """On-Balance Volume (Smart Money Flow Indicator)"""
     obv = np.where(close > close.shift(1), volume, np.where(close < close.shift(1), -volume, 0)).cumsum()
     return pd.Series(obv, index=close.index)
 
@@ -147,12 +155,10 @@ def calculate_sr_levels_and_atr(hist):
     price = safe_float(close.iloc[-1])
     if not price: return None
 
-    # ATR
     prev_close = close.shift(1)
     tr = pd.concat([high - low, (high - prev_close).abs(), (low - prev_close).abs()], axis=1).max(axis=1)
     atr = safe_float(tr.rolling(14).mean().iloc[-1]) or (price * 0.03)
 
-    # Fibonacci Pivots
     window = hist.tail(20)
     h, l = safe_float(window["High"].max()) or price, safe_float(window["Low"].min()) or price
     c = safe_float(close.iloc[-2]) if len(close) >= 2 else price
@@ -162,7 +168,6 @@ def calculate_sr_levels_and_atr(hist):
     r1, r2, r3 = pivot + (0.382 * rng), pivot + (0.618 * rng), pivot + (1.000 * rng)
     s1, s2, s3 = max(0.01, pivot - (0.382 * rng)), max(0.01, pivot - (0.618 * rng)), max(0.01, pivot - (1.000 * rng))
 
-    # Volume metrics
     vol_avg_20 = safe_float(vol.tail(20).mean())
     vol_latest = safe_float(vol.iloc[-1])
     vol_ratio = (vol_latest / vol_avg_20) if (vol_avg_20 and vol_avg_20 > 0 and vol_latest) else 1.0
@@ -238,7 +243,6 @@ def get_quarterly_and_balance_metrics(ticker):
 # ==============================================================================
 
 def agent_1_multi_timeframe_quant(ticker, hist, sr_info):
-    """Agent 1: Techniek, Golden Bounce & Elastiek-Penalty"""
     close = hist["Close"]
     price = sr_info["Price"]
     sma20, sma50 = safe_float(close.rolling(20).mean().iloc[-1]), safe_float(close.rolling(50).mean().iloc[-1])
@@ -275,7 +279,6 @@ def agent_1_multi_timeframe_quant(ticker, hist, sr_info):
     return {"score": round(max(1.0, min(10.0, pts)), 1), "rsi": rsi, "sma20": sma20, "sma50": sma50, "reasons": rsn}
 
 def agent_2_fundamental_quarterly_valuation(info, q_metrics):
-    """Agent 2: Fundament, P/E, P/B, Marges & Groei"""
     pe = safe_float(info.get("trailingPE"))
     pb = safe_float(info.get("priceToBook"))
     margin = safe_float(info.get("profitMargins"))
@@ -305,7 +308,6 @@ def agent_2_fundamental_quarterly_valuation(info, q_metrics):
     return {"score": score, "pe": pe, "pb": pb, "margin": margin*100 if margin else None, "rev_growth": rg*100 if rg else None, "reasons": rsn}
 
 def agent_3_orderflow_and_alpha(ticker, hist, macro_info):
-    """Agent 3 (Vervangt Nieuws Agent): Institutionele Orderflow (OBV) & Relative Strength (Alpha)"""
     close, vol = hist["Close"], hist["Volume"]
     obv = calculate_obv(close, vol)
     obv_sma = obv.rolling(20).mean().iloc[-1]
@@ -328,7 +330,6 @@ def agent_3_orderflow_and_alpha(ticker, hist, macro_info):
     return {"adjustment": adj, "alpha": alpha, "reasons": rsn}
 
 def agent_4_macro_fx_devaluation_buffer(ticker, sector, macro_info):
-    """Agent 4: Macro & Valutabuffer"""
     dev_risk = macro_info.get("dev_risk", False)
     is_exp = ticker in HARD_CURRENCY_EXPORTERS
     adj, rsn = 0.0, []
@@ -341,7 +342,6 @@ def agent_4_macro_fx_devaluation_buffer(ticker, sector, macro_info):
     return {"adjustment": adj, "reasons": rsn}
 
 def agent_5_debt_liquidity_interest_stress(info, q_metrics):
-    """Agent 5: Schuld & Balansstress"""
     dte = safe_float(info.get("debtToEquity"))
     net_debt = q_metrics["net_debt_full"]
     adj, rsn = 0.0, []
@@ -353,7 +353,6 @@ def agent_5_debt_liquidity_interest_stress(info, q_metrics):
     return {"adjustment": adj, "reasons": rsn if rsn else ["Geen schulddata gerapporteerd."]}
 
 def agent_6_insider_buyback_dividend_structure(info):
-    """Agent 6: Structuur, Float & Dividend"""
     div = safe_float(info.get("dividendYield"))
     ff = safe_float(info.get("floatShares"))
     out = safe_float(info.get("sharesOutstanding"))
@@ -367,7 +366,6 @@ def agent_6_insider_buyback_dividend_structure(info):
     return {"adjustment": adj, "reasons": rsn if rsn else ["Standaard BIST 30 structuur."]}
 
 def agent_7_independent_risk_and_factcheck_auditor(a1, a2, a5, sr_info):
-    """Agent 7: Risico-Auditor (Combineert data tot Setup Type)"""
     t_score, f_score = a1["score"], a2["score"]
     dist_s1 = sr_info["Dist_S1_Pct"]
     
@@ -380,10 +378,9 @@ def agent_7_independent_risk_and_factcheck_auditor(a1, a2, a5, sr_info):
     elif t_score >= 7.0: setup, risk = "Sterke Kwaliteitstrend & Momentum", "Laag tot Gemiddeld"
     else: setup, risk = "Neutraal / Volgen op Watchlist", "Gemiddeld"
     
-    return {"setup": setup, "risk": risk, "quality": data_quality, "adjustment": q_adj}
+    return {"setup": setup, "risk": risk, "quality": data_quality, "adjustment": q_adj, "reason": f"Classificatie: {setup} | Risicoprofiel: {risk}"}
 
 def agent_8_execution_portfolio_telegram_dispatcher(ticker, company, price, sr_info, total_score, setup):
-    """Agent 8: Harde 1:2 R/R Blokkade & Executie"""
     atr = sr_info["ATR"]
     atr_stop = max(0.01, price - (1.5 * atr))
     atr_target = price + (2.5 * atr)
@@ -410,7 +407,6 @@ def analyze_stock_pure_quant(ticker, macro):
     price = safe_float(hist["Close"].iloc[-1])
     if not price: return None
     
-    # VEILIGHEID: Try-except tegen Yahoo API limiet crashen
     try:
         info = yf.Ticker(ticker).info or {}
     except Exception:
