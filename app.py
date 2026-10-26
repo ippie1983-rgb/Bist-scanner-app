@@ -9,7 +9,7 @@ from datetime import datetime, timedelta
 
 # ==============================================================================
 # BIST 30 PURE QUANT ULTIMATE 5.8 — 8-AGENT ENTERPRISE COMMAND CENTER
-# PURE DATA-GEDREVEN: GEEN NIEUWS/AI, FOCUS OP FUNDAMENT, TECHNIEK & ORDERFLOW
+# INCLUSIEF: JIP EN JANNEKE UITLEG, HOVER-TOOLTIPS & API-BEVEILIGING
 # ==============================================================================
 
 st.set_page_config(
@@ -77,7 +77,7 @@ HARD_CURRENCY_EXPORTERS = {
 }
 
 # ==============================================================================
-# 2. STRICTE FORMATTERINGSHULPFUNCTIES
+# 2. STRICTE FORMATTERINGSHULPFUNCTIES & TOOLTIPS
 # ==============================================================================
 
 def safe_float(value):
@@ -114,9 +114,10 @@ def format_full_ratio(val, decimals=2, suffix="x"):
     parts = f"{v:,.{decimals}f}".split(".")
     return f"{parts[0].replace(',', '.')},{parts[1]}{suffix}"
 
-def render_full_card(title, value_str, subtitle_str="", border_color="#1f77b4"):
+def render_full_card(title, value_str, subtitle_str="", border_color="#1f77b4", tooltip=""):
+    """Rendert een datakaartje. Als 'tooltip' is meegegeven, zie je dit als je er met de muis overheen gaat."""
     st.markdown(
-        f"""<div class="full-num-card" style="border-left-color: {border_color};">
+        f"""<div class="full-num-card" style="border-left-color: {border_color};" title="{tooltip}">
             <div class="full-num-title">{title}</div>
             <div class="full-num-val">{value_str}</div>
             <div class="full-num-sub">{subtitle_str}</div>
@@ -462,7 +463,6 @@ def run_historical_backtest(ticker, hold_days=10):
         cp, csma, crsi, prsi = safe_float(close.iloc[i]), safe_float(sma20.iloc[i]), safe_float(rsi.iloc[i]), safe_float(rsi.iloc[i-1])
         cobv, csmaobv = safe_float(obv.iloc[i]), safe_float(obv_sma.iloc[i])
         
-        # Strategy: Trend + RSI opwaarts + Smart Money accumulatie (OBV)
         if cp and csma and crsi and prsi and cobv and csmaobv:
             if cp > csma and 35 <= crsi <= 60 and crsi > prsi and cobv > csmaobv:
                 exp = safe_float(close.iloc[i+hold_days])
@@ -501,6 +501,27 @@ st.caption("Focus op Harde Data: Orderflow (OBV), Alpha, Elastiek-Penalty & Hard
 
 with st.sidebar:
     st.header("⚙️ Instellingen")
+    
+    # 📚 Uitleg Begrippen in de zijbalk (Jip en Janneke)
+    with st.expander("📚 Uitleg Begrippen (Jip en Janneke)", expanded=False):
+        st.markdown("""
+        **Alpha:** Meet de 'overwinning' van jouw aandeel ten opzichte van de hele markt. Als de beurs met 5% stijgt en jouw aandeel met 8%, is je Alpha +3%.
+        
+        **OBV:** De speurneus voor het 'grote geld' (banken/fondsen). Meet of ze stiekem grote hoeveelheden aandelen inslaan voordat de koers stijgt.
+        
+        **Elastiek-Penalty:** Een aandeel beweegt als een elastiekje. Is de prijs ineens extreem ver gestegen? Dan staat het elastiekje strak en klapt het hard terug. De scanner blokkeert dit.
+        
+        **Golden Bounce:** De perfecte stuitering op de steunlijn (de vloer) mét hoog volume. Het veiligste moment om te kopen.
+        
+        **Risk/Reward:** Riskeer 1 Lira om er 2 te winnen (1:2). De scanner blokkeert slechte kansen automatisch.
+        
+        **P/E (F/K):** Het prijskaartje. Hoeveel jaar duurt het om je inleg terug te verdienen? Hoe lager, hoe goedkoper.
+        
+        **ATR:** De zenuwachtigheidsmeter. Hoeveel schommelt de koers normaal per dag? Hiermee bepalen we de perfecte Stop-Loss.
+        
+        **Steun / Weerstand:** De onzichtbare vloer waar kopers klaarstaan (steun) en het plafond waar beleggers winst pakken (weerstand).
+        """)
+        
     if st.button("🚀 Start BIST 30 Quant Scan", type="primary", use_container_width=True):
         rows = []
         mac = get_macro_data()
@@ -541,10 +562,12 @@ if "pure_res" in st.session_state:
                 else: st.info("Geen Telegram-signaal (score te laag).")
                 
                 c1, c2, c3, c4 = st.columns(4)
-                with c1: render_full_card("Totaalscore", r["Totaalscore"], r["Type Setup"], "#1f77b4")
-                with c2: render_full_card("Risk / Reward", r["Risk/Reward"], "Min. 2.0x voor signaal", "#2ca02c")
-                with c3: render_full_card("S1 / R1 Niveaus", f"{r['Steun S1']} / {r['Weerstand R1']}", "Fibonacci Pivots", "#ff7f0e")
-                with c4: render_full_card("Alpha vs BIST 30", r["Alpha vs Index"], "Relatieve Sterkte", "#9467bd")
+                
+                # Hier zitten de zwevende tooltips (hover text) op de blokken
+                with c1: render_full_card("Totaalscore", r["Totaalscore"], r["Type Setup"], "#1f77b4", tooltip="Cijfer van 1 tot 10 gebaseerd op de checklisten van alle 8 de AI-agents.")
+                with c2: render_full_card("Risk / Reward", r["Risk/Reward"], "Min. 2.0x voor signaal", "#2ca02c", tooltip="Risico/Rendement verhouding. Hoeveel Lira potentiële winst staat er tegenover elke Lira risico?")
+                with c3: render_full_card("S1 / R1 Niveaus", f"{r['Steun S1']} / {r['Weerstand R1']}", "Fibonacci Pivots", "#ff7f0e", tooltip="De vloer (Steun S1) en het plafond (Weerstand R1) van het aandeel.")
+                with c4: render_full_card("Alpha vs BIST 30", r["Alpha vs Index"], "Relatieve Sterkte", "#9467bd", tooltip="Hoeveel procent het aandeel harder (of zachter) stijgt dan het marktgemiddelde.")
                 
                 st.write(f"- **Agent 1 (Techniek, Elastiek, Bounce):** {r['A1_Tech']}")
                 st.write(f"- **Agent 2 (Fundament & Marges):** {r['A2_Fund']}")
@@ -558,8 +581,9 @@ if "pure_res" in st.session_state:
     with t3:
         st.subheader("💼 Portefeuille Simulator")
         p1, p2 = st.columns(2)
-        with p1: cap = st.number_input("Totaal Kapitaal (TRY):", value=250000.0)
-        with p2: max_r = st.slider("Max verliesrisico per positie (%):", 0.5, 5.0, 1.5)
+        # Hier zitten de tooltips op de invulvelden (vraagtekens)
+        with p1: cap = st.number_input("Totaal Kapitaal (TRY):", value=250000.0, help="Vul hier het totale bedrag in dat je beschikbaar hebt voor de beurs.")
+        with p2: max_r = st.slider("Max verliesrisico per positie (%):", 0.5, 5.0, 1.5, help="Hoeveel procent van je totale geld mag je maximaal verliezen als het aandeel wegzakt en je nooduitgang (Stop-Loss) wordt geraakt?")
         
         sim = []
         for _, r in df_res.head(10).iterrows():
@@ -582,12 +606,12 @@ if "pure_res" in st.session_state:
         st.subheader("📈 Historische Strategie Backtester (OBV + RSI Bounce)")
         b1, b2 = st.columns(2)
         with b1: bt_sym = st.selectbox("Aandeel:", WATCHLIST)
-        with b2: bt_days = st.slider("Houdperiode (dagen):", 5, 30, 10)
+        with b2: bt_days = st.slider("Houdperiode (dagen):", 5, 30, 10, help="Hoeveel dagen de scanner doet alsof hij het aandeel vasthoudt na een aankoop.")
         bt = run_historical_backtest(bt_sym, bt_days)
         if bt and bt["total"] > 0:
             c1, c2, c3 = st.columns(3)
-            with c1: render_full_card("Aantal Trades", format_full_integer(bt["total"]), "Afgelopen 24 mnd", "#1f77b4")
-            with c2: render_full_card("Win-Rate", format_full_percentage(bt["win_rate"], 1), "", "#2ca02c")
-            with c3: render_full_card("Gem. Rendement", format_full_percentage(bt["avg_ret"], 2, True), "Per trade", "#ff7f0e")
+            with c1: render_full_card("Aantal Trades", format_full_integer(bt["total"]), "Afgelopen 24 mnd", "#1f77b4", tooltip="Hoe vaak de scanner dit aandeel succesvol had kunnen kopen.")
+            with c2: render_full_card("Win-Rate", format_full_percentage(bt["win_rate"], 1), "", "#2ca02c", tooltip="In hoeveel procent van de gevallen maakte je daadwerkelijk winst na aankoop?")
+            with c3: render_full_card("Gem. Rendement", format_full_percentage(bt["avg_ret"], 2, True), "Per trade", "#ff7f0e", tooltip="De gemiddelde winst die je per aan/verkoop behaalde.")
             st.dataframe(bt["df"], use_container_width=True, hide_index=True)
         else: st.info("Geen signalen gevonden voor deze periode.")
